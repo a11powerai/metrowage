@@ -6,12 +6,17 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { Pencil, X } from "lucide-react";
 
 const schema = z.object({
-    workerId: z.coerce.number().min(1, "Select worker"),
-    basicSalary: z.coerce.number().min(0),
-    overtimeRate: z.coerce.number().min(0),
+    workerId: z.union([z.string(), z.number()]).transform(Number),
+    basicSalary: z.union([z.string(), z.number()]).transform(Number),
+    overtimeRate: z.union([z.string(), z.number()]).transform(Number),
     workerType: z.enum(["Salary", "PieceRate", "Both"]),
 });
-type FormData = z.infer<typeof schema>;
+type FormData = {
+    workerId: number;
+    basicSalary: number;
+    overtimeRate: number;
+    workerType: "Salary" | "PieceRate" | "Both";
+};
 
 export default function SalaryProfilesPage() {
     const [workers, setWorkers] = useState<any[]>([]);

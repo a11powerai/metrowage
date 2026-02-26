@@ -8,12 +8,16 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 
 const schema = z.object({
-    qtyFrom: z.coerce.number().min(1),
-    qtyTo: z.coerce.number().min(1),
-    ratePerUnit: z.coerce.number().min(0.01),
+    qtyFrom: z.union([z.string(), z.number()]).transform(Number),
+    qtyTo: z.union([z.string(), z.number()]).transform(Number),
+    ratePerUnit: z.union([z.string(), z.number()]).transform(Number),
 }).refine((d) => d.qtyTo > d.qtyFrom, { message: "Qty To must be greater than Qty From", path: ["qtyTo"] });
 
-type FormData = z.infer<typeof schema>;
+type FormData = {
+    qtyFrom: number;
+    qtyTo: number;
+    ratePerUnit: number;
+};
 
 export default function SlabsPage() {
     const params = useParams();
