@@ -1,0 +1,39 @@
+# MetroWage — Caddyfile
+# Place this file on your server and run: caddy run --config Caddyfile
+#
+# Cloudflare setup:
+#   - DNS: A record → your server IP, orange-cloud (proxied)
+#   - SSL/TLS mode: Full (Strict)  ← required, Caddy manages the cert
+#   - Under "Network": enable "WebSockets" if using Next.js dev HMR remotely
+#
+# Replace "metrowage.yourdomain.com" with your actual domain.
+
+hr.metromarqo.lk {
+    # Reverse proxy to the Next.js app on port 3018
+    reverse_proxy localhost:3018 {
+        # Forward real visitor IP to Next.js
+        header_up X-Real-IP {remote_host}
+        header_up X-Forwarded-For {remote_host}
+        header_up X-Forwarded-Proto {scheme}
+    }
+
+    # Enable gzip / zstd compression
+    encode zstd gzip
+
+    # Security headers
+    header {
+        X-Content-Type-Options "nosniff"
+        X-Frame-Options "SAMEORIGIN"
+        Referrer-Policy "strict-origin-when-cross-origin"
+        # Remove the Server header
+        -Server
+    }
+
+    # Logging
+    log {
+        output file /var/log/caddy/metrowage.log {
+            roll_size 10mb
+            roll_keep 5
+        }
+    }
+}

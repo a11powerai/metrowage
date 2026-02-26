@@ -3,14 +3,14 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev",
+    "dev": "next dev -p 3018",
     "build": "next build",
-    "start": "next start",
+    "start": "next start -p 3018",
     "lint": "eslint",
-    "db:migrate": "prisma migrate dev --name init",
-    "db:seed": "ts-node --compiler-options {\"module\":\"CommonJS\"} prisma/seed.ts",
     "db:push": "prisma db push",
-    "db:generate": "prisma generate"
+    "db:generate": "prisma generate",
+    "db:seed": "ts-node -e \"require('./prisma/seed')\"",
+    "db:migrate": "prisma migrate deploy"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.2.2",
