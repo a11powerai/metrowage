@@ -40,7 +40,7 @@ export async function POST(req: Request) {
                     date: { gte: startOfDay(start), lte: endOfDay(end) },
                 },
             },
-            include: { product: true },
+            include: { product: true, day: true },
         });
 
         const assemblyEarnings = assemblyLines.reduce((s, l) => s + l.lineTotal, 0);
@@ -97,6 +97,7 @@ export async function POST(req: Request) {
                 netPay,
                 assemblyLines: {
                     create: assemblyLines.map(l => ({
+                        date: l.day.date,
                         productName: l.product.name,
                         quantity: l.quantity,
                         appliedRate: l.appliedRate,

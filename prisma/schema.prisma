@@ -161,6 +161,7 @@ model PayrollRecord {
 model AssemblyPayrollLine {
   id            Int           @id @default(autoincrement())
   recordId      Int
+  date          DateTime
   productName   String
   quantity      Int
   appliedRate   Float
