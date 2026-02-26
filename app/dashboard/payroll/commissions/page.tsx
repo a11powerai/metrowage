@@ -6,19 +6,13 @@ import { Plus, CheckCircle, Trash2, X } from "lucide-react";
 import { formatCurrency } from "@/lib/utils";
 
 const schema = z.object({
-    workerId: z.union([z.string(), z.number()]).transform(Number),
+    workerId: z.coerce.number().min(1),
     series: z.string().min(1),
-    amount: z.union([z.string(), z.number()]).transform(Number),
+    amount: z.coerce.number().min(1),
     periodStart: z.string().min(1),
     periodEnd: z.string().min(1),
 });
-type FormData = {
-    workerId: number;
-    series: string;
-    amount: number;
-    periodStart: string;
-    periodEnd: string;
-};
+type FormData = z.infer<typeof schema>;
 
 export default function CommissionsPage() {
     const [workers, setWorkers] = useState<any[]>([]);
@@ -27,7 +21,10 @@ export default function CommissionsPage() {
     const [loading, setLoading] = useState(false);
     const today = new Date().toISOString().split("T")[0];
 
-    const { register, handleSubmit, reset, formState: { errors } } = useForm<FormData>({ resolver: zodResolver(schema), defaultValues: { periodStart: today, periodEnd: today } });
+    const { register, handleSubmit, reset, formState: { errors } } = useForm<FormData>({
+        resolver: zodResolver(schema) as any,
+        defaultValues: { periodStart: today, periodEnd: today }
+    });
     const load = async () => {
         const [wRes, cRes] = await Promise.all([fetch("/api/workers"), fetch("/api/payroll/commissions")]);
         setWorkers(await wRes.json()); setCommissions(await cRes.json());
