@@ -6,17 +6,12 @@ import { Plus, Trash2, X } from "lucide-react";
 import { formatCurrency } from "@/lib/utils";
 
 const schema = z.object({
-    workerId: z.union([z.string(), z.number()]).transform(Number),
+    workerId: z.coerce.number().min(1, "Select worker"),
     name: z.string().min(1, "Name required"),
-    amount: z.union([z.string(), z.number()]).transform(Number),
+    amount: z.coerce.number().min(1, "Amount required"),
     frequency: z.enum(["Monthly", "OneTime"]),
 });
-type FormData = {
-    workerId: number;
-    name: string;
-    amount: number;
-    frequency: "Monthly" | "OneTime";
-};
+type FormData = z.infer<typeof schema>;
 
 export default function AllowancesPage() {
     const [workers, setWorkers] = useState<any[]>([]);
@@ -24,7 +19,10 @@ export default function AllowancesPage() {
     const [showForm, setShowForm] = useState(false);
     const [loading, setLoading] = useState(false);
 
-    const { register, handleSubmit, reset, formState: { errors } } = useForm<FormData>({ resolver: zodResolver(schema), defaultValues: { frequency: "Monthly" } });
+    const { register, handleSubmit, reset, formState: { errors } } = useForm<FormData>({
+        resolver: zodResolver(schema) as any,
+        defaultValues: { frequency: "Monthly" }
+    });
 
     const load = async () => {
         const [wRes, aRes] = await Promise.all([fetch("/api/workers"), fetch("/api/payroll/allowances")]);

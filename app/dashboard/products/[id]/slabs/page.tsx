@@ -8,16 +8,12 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 
 const schema = z.object({
-    qtyFrom: z.union([z.string(), z.number()]).transform(Number),
-    qtyTo: z.union([z.string(), z.number()]).transform(Number),
-    ratePerUnit: z.union([z.string(), z.number()]).transform(Number),
+    qtyFrom: z.coerce.number().min(1),
+    qtyTo: z.coerce.number().min(1),
+    ratePerUnit: z.coerce.number().min(0.01),
 }).refine((d) => d.qtyTo > d.qtyFrom, { message: "Qty To must be greater than Qty From", path: ["qtyTo"] });
 
-type FormData = {
-    qtyFrom: number;
-    qtyTo: number;
-    ratePerUnit: number;
-};
+type FormData = z.infer<typeof schema>;
 
 export default function SlabsPage() {
     const params = useParams();
@@ -28,7 +24,9 @@ export default function SlabsPage() {
     const [loading, setLoading] = useState(false);
     const [overlapError, setOverlapError] = useState("");
 
-    const { register, handleSubmit, reset, formState: { errors } } = useForm<FormData>({ resolver: zodResolver(schema) });
+    const { register, handleSubmit, reset, formState: { errors } } = useForm<FormData>({
+        resolver: zodResolver(schema) as any
+    });
 
     const load = async () => {
         const [pRes, sRes] = await Promise.all([

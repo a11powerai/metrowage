@@ -8,16 +8,11 @@ import { formatCurrency, formatDate } from "@/lib/utils";
 
 const schema = z.object({
     date: z.string().min(1, "Date required"),
-    workerId: z.union([z.string(), z.number()]).transform(Number),
-    productId: z.union([z.string(), z.number()]).transform(Number),
-    quantity: z.union([z.string(), z.number()]).transform(Number),
+    workerId: z.coerce.number().min(1, "Worker required"),
+    productId: z.coerce.number().min(1, "Product required"),
+    quantity: z.coerce.number().min(1, "Quantity must be at least 1"),
 });
-type FormData = {
-    date: string;
-    workerId: number;
-    productId: number;
-    quantity: number;
-};
+type FormData = z.infer<typeof schema>;
 
 export default function ProductionPage() {
     const [workers, setWorkers] = useState<any[]>([]);
@@ -33,7 +28,7 @@ export default function ProductionPage() {
     const today = new Date().toISOString().split("T")[0];
 
     const { register, handleSubmit, watch, reset, setValue, formState: { errors } } = useForm<FormData>({
-        resolver: zodResolver(schema),
+        resolver: zodResolver(schema) as any,
         defaultValues: { date: today },
     });
 
