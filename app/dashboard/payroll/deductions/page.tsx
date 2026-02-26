@@ -6,14 +6,21 @@ import { Plus, Trash2, X } from "lucide-react";
 import { formatCurrency } from "@/lib/utils";
 
 const schema = z.object({
-    workerId: z.coerce.number().min(1),
+    workerId: z.union([z.string(), z.number()]).transform(Number),
     type: z.enum(["Loan", "Advance", "Statutory", "Penalty", "Other"]),
     description: z.string().min(1),
-    amount: z.coerce.number().min(1),
+    amount: z.union([z.string(), z.number()]).transform(Number),
     periodStart: z.string().min(1),
     periodEnd: z.string().min(1),
 });
-type FormData = z.infer<typeof schema>;
+type FormData = {
+    workerId: number;
+    type: "Loan" | "Advance" | "Statutory" | "Penalty" | "Other";
+    description: string;
+    amount: number;
+    periodStart: string;
+    periodEnd: string;
+};
 
 const TYPE_COLOR: Record<string, string> = {
     Loan: "bg-red-500/20 text-red-400", Advance: "bg-orange-500/20 text-orange-400",

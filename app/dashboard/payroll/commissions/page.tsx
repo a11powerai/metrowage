@@ -6,13 +6,19 @@ import { Plus, CheckCircle, Trash2, X } from "lucide-react";
 import { formatCurrency } from "@/lib/utils";
 
 const schema = z.object({
-    workerId: z.string().min(1).transform(Number),
+    workerId: z.union([z.string(), z.number()]).transform(Number),
     series: z.string().min(1),
-    amount: z.string().min(1).transform(Number),
+    amount: z.union([z.string(), z.number()]).transform(Number),
     periodStart: z.string().min(1),
     periodEnd: z.string().min(1),
 });
-type FormData = { workerId: number; series: string; amount: number; periodStart: string; periodEnd: string };
+type FormData = {
+    workerId: number;
+    series: string;
+    amount: number;
+    periodStart: string;
+    periodEnd: string;
+};
 
 export default function CommissionsPage() {
     const [workers, setWorkers] = useState<any[]>([]);

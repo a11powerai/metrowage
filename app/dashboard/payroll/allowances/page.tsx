@@ -6,12 +6,17 @@ import { Plus, Trash2, X } from "lucide-react";
 import { formatCurrency } from "@/lib/utils";
 
 const schema = z.object({
-    workerId: z.coerce.number().min(1, "Select worker"),
+    workerId: z.union([z.string(), z.number()]).transform(Number),
     name: z.string().min(1, "Name required"),
-    amount: z.coerce.number().min(1, "Amount required"),
+    amount: z.union([z.string(), z.number()]).transform(Number),
     frequency: z.enum(["Monthly", "OneTime"]),
 });
-type FormData = z.infer<typeof schema>;
+type FormData = {
+    workerId: number;
+    name: string;
+    amount: number;
+    frequency: "Monthly" | "OneTime";
+};
 
 export default function AllowancesPage() {
     const [workers, setWorkers] = useState<any[]>([]);
