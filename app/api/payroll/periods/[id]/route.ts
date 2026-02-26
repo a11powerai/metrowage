@@ -1,9 +1,10 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 
-export async function GET(_: Request, { params }: { params: { id: string } }) {
+export async function GET(_: Request, { params }: { params: Promise<{ id: string }> }) {
+    const { id } = await params;
     const period = await prisma.payrollPeriod.findUnique({
-        where: { id: Number(params.id) },
+        where: { id: Number(id) },
         include: {
             records: {
                 include: {
@@ -19,11 +20,12 @@ export async function GET(_: Request, { params }: { params: { id: string } }) {
     return NextResponse.json(period);
 }
 
-export async function PATCH(req: Request, { params }: { params: { id: string } }) {
+export async function PATCH(req: Request, { params }: { params: Promise<{ id: string }> }) {
+    const { id } = await params;
     const body = await req.json();
     // Finalize
     const period = await prisma.payrollPeriod.update({
-        where: { id: Number(params.id) },
+        where: { id: Number(id) },
         data: { status: body.status },
     });
     if (body.status === "Finalized") {
@@ -33,3 +35,4 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
     }
     return NextResponse.json(period);
 }
+

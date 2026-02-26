@@ -9,8 +9,9 @@ const ROLE_RESTRICTED: Record<string, string[]> = {
 };
 
 export default withAuth(
-    function middleware(req) {
+    function proxy(req) {
         const { pathname } = req.nextUrl;
+
         const role = req.nextauth.token?.role as string;
 
         for (const [route, roles] of Object.entries(ROLE_RESTRICTED)) {
