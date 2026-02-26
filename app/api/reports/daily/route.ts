@@ -3,7 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { startOfDay, endOfDay } from "date-fns";
 
 export async function GET(req: Request) {
-    const { searchParams } = new URL(req.url);
+    const { searchParams } = new URL(req.url, "http://n");
     const dateStr = searchParams.get("date");
     if (!dateStr) return NextResponse.json({ workers: [], factoryTotal: 0 });
 
@@ -32,6 +32,6 @@ export async function GET(req: Request) {
         workerMap[wid].total += line.lineTotal;
     }
 
-    const factoryTotal = day.lines.reduce((a, l) => a + l.lineTotal, 0);
+    const factoryTotal = day.lines.reduce((a: number, l: any) => a + l.lineTotal, 0);
     return NextResponse.json({ workers: Object.values(workerMap), factoryTotal, status: day.status });
 }

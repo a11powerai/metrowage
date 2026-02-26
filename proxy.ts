@@ -16,9 +16,12 @@ export default withAuth(
 
         for (const [route, roles] of Object.entries(ROLE_RESTRICTED)) {
             if (pathname.startsWith(route) && !roles.includes(role)) {
-                return NextResponse.redirect(new URL("/dashboard", req.url));
+                const url = req.nextUrl.clone();
+                url.pathname = "/dashboard";
+                return NextResponse.redirect(url);
             }
         }
+
 
         return NextResponse.next();
     },

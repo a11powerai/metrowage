@@ -4,7 +4,7 @@ import { findMatchingSlab, calculateLineTotal } from "@/lib/calculations";
 import { startOfDay, endOfDay } from "date-fns";
 
 export async function GET(req: Request) {
-    const { searchParams } = new URL(req.url);
+    const { searchParams } = new URL(req.url, "http://n");
     const dateStr = searchParams.get("date");
     if (!dateStr) return NextResponse.json({ lines: [] });
 

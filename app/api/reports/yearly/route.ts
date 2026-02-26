@@ -3,7 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { startOfYear, endOfYear, getMonth } from "date-fns";
 
 export async function GET(req: Request) {
-    const { searchParams } = new URL(req.url);
+    const { searchParams } = new URL(req.url, "http://n");
     const year = Number(searchParams.get("year") ?? new Date().getFullYear());
 
     const start = startOfYear(new Date(year, 0, 1));

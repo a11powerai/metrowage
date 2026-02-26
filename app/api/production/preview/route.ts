@@ -3,7 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { findMatchingSlab, calculateLineTotal } from "@/lib/calculations";
 
 export async function GET(req: Request) {
-    const { searchParams } = new URL(req.url);
+    const { searchParams } = new URL(req.url, "http://n");
     const productId = Number(searchParams.get("productId"));
     const quantity = Number(searchParams.get("quantity"));
 
