@@ -31,9 +31,10 @@ jobs:
       - name: Build
         env:
           DATABASE_URL: "file:./prisma/dev.db" # Build-time placeholder
-          NEXTAUTH_SECRET: ${{ secrets.NEXTAUTH_SECRET }}
-          NEXTAUTH_URL: https://hr.metromarqo.lk
+          NEXTAUTH_SECRET: ${{ secrets.NEXTAUTH_SECRET || 'build-time-secret-placeholder' }}
+          NEXTAUTH_URL: "https://hr.metromarqo.lk"
         run: npm run build
+
 
       - name: Package Build
         # Standalone output requires public and static folders to be copied manually
