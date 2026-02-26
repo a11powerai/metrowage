@@ -1,0 +1,131 @@
+name: Deploy MetroWage Production
+
+on:
+  push:
+    branches: ["master"]
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-metrowage-production
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Generate Prisma Client
+        run: npx prisma generate
+
+      - name: Build
+        env:
+          DATABASE_URL: "file:./prisma/dev.db" # Build-time placeholder
+          NEXTAUTH_SECRET: ${{ secrets.NEXTAUTH_SECRET }}
+          NEXTAUTH_URL: https://hr.metromarqo.lk
+        run: npm run build
+
+      - name: Package Build
+        # Standalone output requires public and static folders to be copied manually
+        run: |
+          mkdir -p public
+          cp -r public .next/standalone/
+          cp -r .next/static .next/standalone/.next/
+          tar -czf build.tar.gz -C .next/standalone .
+
+      - name: Upload Build Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-artifact
+          path: build.tar.gz
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: production
+      url: https://hr.metromarqo.lk
+    steps:
+      - name: Download Build Artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: build-artifact
+
+      - name: Upload to Server
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.SERVER_HOST || '173.212.203.34' }}
+          username: ${{ secrets.SERVER_USER || 'root' }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          port: ${{ secrets.SSH_PORT || 22 }}
+          source: "build.tar.gz"
+          target: "/tmp/"
+
+      - name: Deploy over SSH (PM2)
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.SERVER_HOST || '173.212.203.34' }}
+          username: ${{ secrets.SERVER_USER || 'root' }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          port: ${{ secrets.SSH_PORT || 22 }}
+          script_stop: true
+          script: |
+            set -euo pipefail
+
+            APP_NAME="metrowage"
+            APP_DIR="/home/a11tech/apps/metrowage"
+            APP_PORT="3018"
+            PERSIST_DATA_DIR="/home/a11tech/apps/_persistent/metrowage-data"
+
+            # 1. Prepare Environment
+            mkdir -p "$APP_DIR"
+            mkdir -p "$PERSIST_DATA_DIR/backups"
+
+            # 2. Extract Pre-built Artifact
+            rm -rf "$APP_DIR/.next" "$APP_DIR/server.js" "$APP_DIR/node_modules"
+            tar -xzf /tmp/build.tar.gz -C "$APP_DIR"
+            rm /tmp/build.tar.gz
+
+            cd "$APP_DIR"
+
+            # 3. Handle Persistence (SQLite)
+            # Standalone build doesn't include the prisma/ folder by default, 
+            # and we need the database to persist.
+            mkdir -p "$PERSIST_DATA_DIR"
+            
+            # Simple backup
+            if [ -f "$PERSIST_DATA_DIR/dev.db" ]; then
+              cp "$PERSIST_DATA_DIR/dev.db" "$PERSIST_DATA_DIR/backups/dev_$(date +%Y%m%d_%H%M%S).db" || true
+            fi
+
+            # 4. Configure Environment
+            cat > .env <<EOF
+            DATABASE_URL="file:$PERSIST_DATA_DIR/dev.db"
+            NEXTAUTH_SECRET="${{ secrets.NEXTAUTH_SECRET }}"
+            NEXTAUTH_URL="https://hr.metromarqo.lk"
+            PORT=$APP_PORT
+            NODE_ENV="production"
+            EOF
+
+            # 5. Restart with PM2 using the standalone server.js
+            if ! command -v pm2 >/dev/null 2>&1; then
+              export NVM_DIR="$HOME/.nvm"
+              [ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"
+              npm i -g pm2 || true
+            fi
+
+            pm2 delete "$APP_NAME" || true
+            PORT=$APP_PORT pm2 start node --name "$APP_NAME" -- server.js
+            pm2 save || true
+
+            echo "MetroWage deployed successfully."

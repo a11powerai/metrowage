@@ -1,6 +1,7 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  output: 'standalone',
   // Caddy sets X-Forwarded-Proto and X-Real-IP correctly.
   // NextAuth picks up the public URL from NEXTAUTH_URL in .env — no extra config needed here.
 };
