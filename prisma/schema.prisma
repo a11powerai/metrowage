@@ -1,0 +1,204 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// ─── Auth ────────────────────────────────────────────────────
+model User {
+  id        Int      @id @default(autoincrement())
+  email     String   @unique
+  name      String
+  password  String
+  role      String   @default("Supervisor")
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+}
+
+// ─── Workers & Products ──────────────────────────────────────
+model Worker {
+  id             Int              @id @default(autoincrement())
+  workerId       String           @unique
+  name           String
+  status         String           @default("Active")
+  createdAt      DateTime         @default(now())
+  productions    ProductionLine[]
+  salaryProfile  WorkerSalaryProfile?
+  payrollRecords PayrollRecord[]
+}
+
+model Product {
+  id          Int              @id @default(autoincrement())
+  productId   String           @unique
+  name        String
+  createdAt   DateTime         @default(now())
+  slabs       IncentiveSlab[]
+  productions ProductionLine[]
+}
+
+model IncentiveSlab {
+  id          Int     @id @default(autoincrement())
+  productId   Int
+  qtyFrom     Int
+  qtyTo       Int
+  ratePerUnit Float
+  product     Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+}
+
+// ─── Production ───────────────────────────────────────────────
+model ProductionDay {
+  id        Int              @id @default(autoincrement())
+  date      DateTime         @unique
+  status    String           @default("Open")
+  createdAt DateTime         @default(now())
+  lines     ProductionLine[]
+}
+
+model ProductionLine {
+  id          Int           @id @default(autoincrement())
+  dayId       Int
+  workerId    Int
+  productId   Int
+  quantity    Int
+  appliedRate Float
+  lineTotal   Int
+  createdAt   DateTime      @default(now())
+  day         ProductionDay @relation(fields: [dayId], references: [id], onDelete: Cascade)
+  worker      Worker        @relation(fields: [workerId], references: [id])
+  product     Product       @relation(fields: [productId], references: [id])
+
+  @@unique([dayId, workerId, productId])
+}
+
+// ─── Payroll ──────────────────────────────────────────────────
+
+model WorkerSalaryProfile {
+  id              Int     @id @default(autoincrement())
+  workerId        Int     @unique
+  basicSalary     Float   @default(0)
+  overtimeRate    Float   @default(0)   // per hour
+  workerType      String  @default("Both")  // Salary | PieceRate | Both
+  worker          Worker  @relation(fields: [workerId], references: [id], onDelete: Cascade)
+}
+
+model Allowance {
+  id             Int            @id @default(autoincrement())
+  workerId       Int
+  name           String
+  amount         Float
+  frequency      String         @default("Monthly")  // Monthly | OneTime
+  active         Boolean        @default(true)
+  createdAt      DateTime       @default(now())
+
+  @@index([workerId])
+}
+
+model Commission {
+  id             Int      @id @default(autoincrement())
+  workerId       Int
+  series         String
+  amount         Float
+  periodStart    DateTime
+  periodEnd      DateTime
+  approved       Boolean  @default(false)
+  createdAt      DateTime @default(now())
+
+  @@index([workerId])
+}
+
+model Deduction {
+  id             Int      @id @default(autoincrement())
+  workerId       Int
+  type           String   // Loan | Advance | Statutory | Penalty | Other
+  description    String
+  amount         Float
+  periodStart    DateTime
+  periodEnd      DateTime
+  applied        Boolean  @default(false)
+  createdAt      DateTime @default(now())
+
+  @@index([workerId])
+}
+
+model PayrollPeriod {
+  id          Int             @id @default(autoincrement())
+  name        String          // e.g. "February 2026"
+  periodStart DateTime
+  periodEnd   DateTime
+  status      String          @default("Draft")  // Draft | Finalized
+  createdAt   DateTime        @default(now())
+  records     PayrollRecord[]
+  auditLogs   AuditLog[]
+}
+
+model PayrollRecord {
+  id                  Int           @id @default(autoincrement())
+  periodId            Int
+  workerId            Int
+  basicSalary         Int           @default(0)
+  overtimeHours       Float         @default(0)
+  overtimePay         Int           @default(0)
+  allowancesTotal     Int           @default(0)
+  commissionsTotal    Int           @default(0)
+  assemblyEarnings    Int           @default(0)
+  deductionsTotal     Int           @default(0)
+  grossPay            Int           @default(0)
+  netPay              Int           @default(0)
+  createdAt           DateTime      @default(now())
+  period              PayrollPeriod @relation(fields: [periodId], references: [id], onDelete: Cascade)
+  worker              Worker        @relation(fields: [workerId], references: [id])
+  assemblyLines       AssemblyPayrollLine[]
+  allowanceLines      AllowancePayrollLine[]
+  deductionLines      DeductionPayrollLine[]
+  commissionLines     CommissionPayrollLine[]
+
+  @@unique([periodId, workerId])
+}
+
+model AssemblyPayrollLine {
+  id            Int           @id @default(autoincrement())
+  recordId      Int
+  productName   String
+  quantity      Int
+  appliedRate   Float
+  lineTotal     Int
+  record        PayrollRecord @relation(fields: [recordId], references: [id], onDelete: Cascade)
+}
+
+model AllowancePayrollLine {
+  id            Int           @id @default(autoincrement())
+  recordId      Int
+  name          String
+  amount        Int
+  record        PayrollRecord @relation(fields: [recordId], references: [id], onDelete: Cascade)
+}
+
+model DeductionPayrollLine {
+  id            Int           @id @default(autoincrement())
+  recordId      Int
+  type          String
+  description   String
+  amount        Int
+  record        PayrollRecord @relation(fields: [recordId], references: [id], onDelete: Cascade)
+}
+
+model CommissionPayrollLine {
+  id            Int           @id @default(autoincrement())
+  recordId      Int
+  series        String
+  amount        Int
+  record        PayrollRecord @relation(fields: [recordId], references: [id], onDelete: Cascade)
+}
+
+model AuditLog {
+  id          Int           @id @default(autoincrement())
+  periodId    Int
+  userId      Int
+  action      String
+  detail      String
+  createdAt   DateTime      @default(now())
+  period      PayrollPeriod @relation(fields: [periodId], references: [id])
+}
