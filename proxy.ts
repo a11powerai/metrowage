@@ -1,5 +1,5 @@
-import { withAuth } from "next-auth/middleware";
-import { NextResponse } from "next/server";
+import { getToken } from "next-auth/jwt";
+import { NextRequest, NextResponse } from "next/server";
 
 const ROLE_RESTRICTED: Record<string, string[]> = {
     "/dashboard/admin": ["SuperAdmin"],
@@ -8,34 +8,41 @@ const ROLE_RESTRICTED: Record<string, string[]> = {
     "/dashboard/reports": ["SuperAdmin", "Admin"],
 };
 
-export default withAuth(
-    function proxy(req) {
-        const { pathname } = req.nextUrl;
+export default async function proxy(req: NextRequest) {
+    const { pathname } = req.nextUrl;
 
-        const role = req.nextauth.token?.role as string;
-
-        for (const [route, roles] of Object.entries(ROLE_RESTRICTED)) {
-            if (pathname.startsWith(route) && !roles.includes(role)) {
-                const url = req.nextUrl.clone();
-                url.pathname = "/dashboard";
-                return NextResponse.redirect(url);
-            }
-        }
-
-
+    // Public routes bypass
+    if (pathname === "/" || pathname === "/login") {
         return NextResponse.next();
-    },
-    {
-        callbacks: {
-            authorized: ({ token, req }) => {
-                const { pathname } = req.nextUrl;
-                if (pathname === "/" || pathname === "/login") return true;
-                return !!token;
-            },
-        },
-        pages: { signIn: "/login" },
     }
-);
+
+    // Try to get token
+    const token = await getToken({
+        req,
+        secret: process.env.NEXTAUTH_SECRET
+    });
+
+    if (!token) {
+        const url = req.nextUrl.clone();
+        url.pathname = "/login";
+        // Protect against loop and ensure redirect is valid
+        if (pathname !== "/login") {
+            return NextResponse.redirect(url);
+        }
+        return NextResponse.next();
+    }
+
+    const role = token.role as string;
+    for (const [route, roles] of Object.entries(ROLE_RESTRICTED)) {
+        if (pathname.startsWith(route) && !roles.includes(role)) {
+            const url = req.nextUrl.clone();
+            url.pathname = "/dashboard";
+            return NextResponse.redirect(url);
+        }
+    }
+
+    return NextResponse.next();
+}
 
 export const config = {
     matcher: ["/((?!_next/static|_next/image|favicon.ico|api/auth).*)"],
