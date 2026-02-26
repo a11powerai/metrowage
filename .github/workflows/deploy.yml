@@ -127,7 +127,7 @@ jobs:
 
             # 5. Database Setup (Automatic)
             echo "Running database migrations and seeding..."
-            npx prisma@5.22.0 db push --accept-data-loss
+            npx prisma@5.22.0 db push --accept-data-loss --skip-generate
             npx prisma@5.22.0 db seed
 
             # 6. Restart with PM2 using the standalone server.js
