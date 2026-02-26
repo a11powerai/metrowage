@@ -121,7 +121,7 @@ Open [http://localhost:3000](http://localhost:3000)
 **Default Login:**
 | Field | Value |
 |-------|-------|
-| Email | `superadmin@metrowage.com` |
+| Email | `superadmin@metromarqo.lk` |
 | Password | `Admin@1234` |
 
 > ⚠️ Change the default password after first login.
