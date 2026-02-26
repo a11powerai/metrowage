@@ -26,7 +26,7 @@ jobs:
         run: npm ci
 
       - name: Generate Prisma Client
-        run: npx prisma generate
+        run: npx prisma@5.22.0 generate
 
       - name: Build
         env:
@@ -127,8 +127,8 @@ jobs:
 
             # 5. Database Setup (Automatic)
             echo "Running database migrations and seeding..."
-            npx prisma db push --accept-data-loss
-            npx prisma db seed
+            npx prisma@5.22.0 db push --accept-data-loss
+            npx prisma@5.22.0 db seed
 
             # 6. Restart with PM2 using the standalone server.js
             if ! command -v pm2 >/dev/null 2>&1; then
