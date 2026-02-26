@@ -41,6 +41,9 @@ jobs:
           mkdir -p public
           cp -r public .next/standalone/
           cp -r .next/static .next/standalone/.next/
+          cp -r prisma .next/standalone/
+          # Compile seed.ts to seed.js for production
+          npx tsc prisma/seed.ts --outDir .next/standalone/prisma --module commonjs --esModuleInterop --target es2020 --skipLibCheck || true
           tar -czf build.tar.gz -C .next/standalone .
 
       - name: Upload Build Artifact
@@ -117,7 +120,12 @@ jobs:
             NODE_ENV="production"
             EOF
 
-            # 5. Restart with PM2 using the standalone server.js
+            # 5. Database Setup (Automatic)
+            echo "Running database migrations and seeding..."
+            npx prisma db push --accept-data-loss
+            npx prisma db seed
+
+            # 6. Restart with PM2 using the standalone server.js
             if ! command -v pm2 >/dev/null 2>&1; then
               export NVM_DIR="$HOME/.nvm"
               [ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"
