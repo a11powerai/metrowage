@@ -32,7 +32,7 @@ export default function ProductionPage() {
     const today = new Date().toISOString().split("T")[0];
 
     const { register, handleSubmit, watch, reset, setValue, formState: { errors } } = useForm<ProductionFormData>({
-        resolver: zodResolver(schema),
+        resolver: zodResolver(schema) as any,
         defaultValues: { date: today },
     });
 
