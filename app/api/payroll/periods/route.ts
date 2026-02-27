@@ -45,11 +45,22 @@ export async function POST(req: Request) {
 
         const assemblyEarnings = assemblyLines.reduce((s, l) => s + l.lineTotal, 0);
 
-        // --- Allowances ---
+        // --- Allowances (with Daily/Weekly frequency scaling) ---
         const allowances = await prisma.allowance.findMany({
             where: { workerId: worker.id, active: true },
         });
-        const allowancesTotal = Math.round(allowances.reduce((s, a) => s + a.amount, 0));
+        const periodDays = Math.round((end.getTime() - start.getTime()) / 86400000) + 1;
+        const workWeeks = Math.max(1, Math.round(periodDays / 7));
+        const presentDays = await prisma.attendance.count({
+            where: { workerId: worker.id, date: { gte: start, lte: end }, status: "Present" },
+        });
+        const effectiveDays = presentDays > 0 ? presentDays : periodDays;
+
+        const allowancesTotal = Math.round(allowances.reduce((s, a) => {
+            if (a.frequency === "Daily") return s + a.amount * effectiveDays;
+            if (a.frequency === "Weekly") return s + a.amount * workWeeks;
+            return s + a.amount; // Monthly or OneTime
+        }, 0));
 
         // --- Approved Commissions in period ---
         const commissions = await prisma.commission.findMany({
@@ -62,24 +73,25 @@ export async function POST(req: Request) {
         });
         const commissionsTotal = Math.round(commissions.reduce((s, c) => s + c.amount, 0));
 
-        // --- Deductions in period ---
+        // --- All unapplied deductions for this worker ---
         const deductions = await prisma.deduction.findMany({
             where: {
                 workerId: worker.id,
                 applied: false,
-                periodStart: { gte: start },
-                periodEnd: { lte: end },
             },
         });
         const deductionsTotal = Math.round(deductions.reduce((s, d) => s + d.amount, 0));
 
-        // --- Basic salary & OT (OT hours from body per worker if provided) ---
+        // presentDays for payroll record
+        const presentDaysCount = presentDays;
+
+        // --- Basic salary & OT ---
         const basicSalary = Math.round(profile?.basicSalary ?? 0);
         const overtimeHours = body.overtimeHours?.[worker.id] ?? 0;
         const overtimePay = Math.round((profile?.overtimeRate ?? 0) * overtimeHours);
 
         const grossPay = basicSalary + overtimePay + allowancesTotal + commissionsTotal + assemblyEarnings;
-        const netPay = grossPay - deductionsTotal;
+        const netPay = Math.max(0, grossPay - deductionsTotal);
 
         // Create payroll record with breakdown lines
         const record = await prisma.payrollRecord.create({
@@ -95,6 +107,7 @@ export async function POST(req: Request) {
                 deductionsTotal,
                 grossPay,
                 netPay,
+                presentDays: presentDaysCount,
                 assemblyLines: {
                     create: assemblyLines.map(l => ({
                         date: l.day.date,

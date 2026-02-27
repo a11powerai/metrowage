@@ -18,21 +18,44 @@ model User {
   createdAt DateTime @default(now())
 }
 
+// ─── Locations ────────────────────────────────────────────────
+model Location {
+  id        Int      @id @default(autoincrement())
+  name      String
+  address   String
+  lat       Float?
+  lng       Float?
+  radius    Float?   @default(200)  // metres
+  createdAt DateTime @default(now())
+  workers   Worker[]
+}
+
 // ─── Workers & Products ──────────────────────────────────────
 model Worker {
-  id             Int              @id @default(autoincrement())
-  workerId       String           @unique
-  name           String
-  status         String           @default("Active")
-  createdAt      DateTime         @default(now())
-  productions    ProductionLine[]
-  salaryProfile  WorkerSalaryProfile?
-  payrollRecords PayrollRecord[]
+  id              Int                  @id @default(autoincrement())
+  workerId        String               @unique
+  name            String
+  phone           String?
+  nic             String?
+  address         String?
+  designation     String?
+  allowGeoCheckin Boolean              @default(false)
+  locationId      Int?
+  status          String               @default("Active")
+  createdAt       DateTime             @default(now())
+  location        Location?            @relation(fields: [locationId], references: [id])
+  productions     ProductionLine[]
+  salaryProfile   WorkerSalaryProfile?
+  payrollRecords  PayrollRecord[]
+  attendance      Attendance[]
+  leaves          Leave[]
 }
 
 model Product {
   id          Int              @id @default(autoincrement())
   productId   String           @unique
+  category    String           @default("")
+  model       String           @default("")
   name        String
   createdAt   DateTime         @default(now())
   slabs       IncentiveSlab[]
@@ -73,6 +96,48 @@ model ProductionLine {
   @@unique([dayId, workerId, productId])
 }
 
+// ─── Attendance ───────────────────────────────────────────────
+model Attendance {
+  id           Int       @id @default(autoincrement())
+  workerId     Int
+  date         DateTime
+  checkInTime  DateTime?
+  checkOutTime DateTime?
+  checkInLat   Float?
+  checkInLng   Float?
+  hoursWorked  Float     @default(0)
+  status       String    @default("Present") // Present | Absent | Leave | Holiday
+  worker       Worker    @relation(fields: [workerId], references: [id])
+
+  @@unique([workerId, date])
+  @@index([workerId])
+}
+
+// ─── Leave ────────────────────────────────────────────────────
+model Leave {
+  id           Int      @id @default(autoincrement())
+  workerId     Int
+  fromDate     DateTime
+  toDate       DateTime
+  leaveType    String   @default("Annual") // Annual | Sick | Casual | Unpaid
+  reason       String
+  status       String   @default("Pending") // Pending | Approved | Rejected
+  approvedById Int?
+  createdAt    DateTime @default(now())
+  worker       Worker   @relation(fields: [workerId], references: [id])
+
+  @@index([workerId])
+}
+
+// ─── Holidays ────────────────────────────────────────────────
+model Holiday {
+  id        Int      @id @default(autoincrement())
+  date      DateTime @unique
+  name      String
+  editable  Boolean  @default(true)
+  createdAt DateTime @default(now())
+}
+
 // ─── Payroll ──────────────────────────────────────────────────
 
 model WorkerSalaryProfile {
@@ -89,7 +154,7 @@ model Allowance {
   workerId       Int
   name           String
   amount         Float
-  frequency      String         @default("Monthly")  // Monthly | OneTime
+  frequency      String         @default("Monthly")  // Monthly | Weekly | Daily | OneTime
   active         Boolean        @default(true)
   createdAt      DateTime       @default(now())
 
@@ -115,6 +180,7 @@ model Deduction {
   type           String   // Loan | Advance | Statutory | Penalty | Other
   description    String
   amount         Float
+  frequency      String   @default("OneTime")  // OneTime | Weekly | Daily
   periodStart    DateTime
   periodEnd      DateTime
   applied        Boolean  @default(false)
@@ -147,6 +213,7 @@ model PayrollRecord {
   deductionsTotal     Int           @default(0)
   grossPay            Int           @default(0)
   netPay              Int           @default(0)
+  presentDays         Int           @default(0)
   createdAt           DateTime      @default(now())
   period              PayrollPeriod @relation(fields: [periodId], references: [id], onDelete: Cascade)
   worker              Worker        @relation(fields: [workerId], references: [id])
@@ -196,10 +263,10 @@ model CommissionPayrollLine {
 
 model AuditLog {
   id          Int           @id @default(autoincrement())
-  periodId    Int
+  periodId    Int?
   userId      Int
   action      String
   detail      String
   createdAt   DateTime      @default(now())
-  period      PayrollPeriod @relation(fields: [periodId], references: [id])
+  period      PayrollPeriod? @relation(fields: [periodId], references: [id])
 }
