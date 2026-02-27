@@ -18,7 +18,7 @@ const schema = z.object({
 type FormData = z.infer<typeof schema>;
 
 const inputCls = "w-full px-3 py-2 bg-white border border-purple-200 rounded-lg text-sm focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-200 text-gray-800 placeholder:text-gray-400";
-const labelCls = "text-xs text-gray-500 mb-1 block font-medium";
+const labelCls = "text-xs text-gray-600 mb-1 block font-medium";
 
 export default function WorkersPage() {
     const [workers, setWorkers] = useState<any[]>([]);
@@ -105,7 +105,7 @@ export default function WorkersPage() {
                 <div className="bg-white border border-purple-100 rounded-2xl p-6 mb-6 shadow-sm">
                     <div className="flex items-center justify-between mb-4">
                         <h2 className="font-semibold text-gray-800">{editId ? "Edit Worker" : "New Worker"}</h2>
-                        <button onClick={() => { setShowForm(false); setEditId(null); }}><X className="w-4 h-4 text-gray-400" /></button>
+                        <button onClick={() => { setShowForm(false); setEditId(null); }}><X className="w-4 h-4 text-gray-500" /></button>
                     </div>
                     {!editId && (
                         <div className="p-3 bg-purple-50 border border-purple-100 rounded-lg mb-4 text-xs text-purple-700">
@@ -173,18 +173,18 @@ export default function WorkersPage() {
                 <table className="w-full text-sm">
                     <thead>
                         <tr className="border-b border-purple-50 bg-purple-25">
-                            <th className="text-left px-4 py-3 text-gray-500 font-medium text-xs uppercase tracking-wide">ID</th>
-                            <th className="text-left px-4 py-3 text-gray-500 font-medium text-xs uppercase tracking-wide">Name</th>
-                            <th className="text-left px-4 py-3 text-gray-500 font-medium text-xs uppercase tracking-wide">Designation</th>
-                            <th className="text-left px-4 py-3 text-gray-500 font-medium text-xs uppercase tracking-wide">Phone</th>
-                            <th className="text-left px-4 py-3 text-gray-500 font-medium text-xs uppercase tracking-wide">Location</th>
-                            <th className="text-left px-4 py-3 text-gray-500 font-medium text-xs uppercase tracking-wide">Status</th>
-                            <th className="text-right px-4 py-3 text-gray-500 font-medium text-xs uppercase tracking-wide">Actions</th>
+                            <th className="text-left px-4 py-3 text-gray-600 font-medium text-xs uppercase tracking-wide">ID</th>
+                            <th className="text-left px-4 py-3 text-gray-600 font-medium text-xs uppercase tracking-wide">Name</th>
+                            <th className="text-left px-4 py-3 text-gray-600 font-medium text-xs uppercase tracking-wide">Designation</th>
+                            <th className="text-left px-4 py-3 text-gray-600 font-medium text-xs uppercase tracking-wide">Phone</th>
+                            <th className="text-left px-4 py-3 text-gray-600 font-medium text-xs uppercase tracking-wide">Location</th>
+                            <th className="text-left px-4 py-3 text-gray-600 font-medium text-xs uppercase tracking-wide">Status</th>
+                            <th className="text-right px-4 py-3 text-gray-600 font-medium text-xs uppercase tracking-wide">Actions</th>
                         </tr>
                     </thead>
                     <tbody>
                         {filtered.length === 0 && (
-                            <tr><td colSpan={7} className="text-center py-10 text-gray-400">No workers found.</td></tr>
+                            <tr><td colSpan={7} className="text-center py-10 text-gray-500">No workers found.</td></tr>
                         )}
                         {filtered.map((w) => (
                             <tr key={w.id} className="border-b border-gray-50 hover:bg-purple-25 transition-colors">
@@ -192,17 +192,17 @@ export default function WorkersPage() {
                                 <td className="px-4 py-3 font-medium text-gray-800">{w.name}
                                     {w.allowGeoCheckin && <MapPin className="w-3 h-3 text-purple-400 inline ml-1" />}
                                 </td>
-                                <td className="px-4 py-3 text-gray-500">{w.designation ?? "—"}</td>
-                                <td className="px-4 py-3 text-gray-500">{w.phone ?? "—"}</td>
-                                <td className="px-4 py-3 text-gray-500">{w.location?.name ?? "—"}</td>
+                                <td className="px-4 py-3 text-gray-600">{w.designation ?? "—"}</td>
+                                <td className="px-4 py-3 text-gray-600">{w.phone ?? "—"}</td>
+                                <td className="px-4 py-3 text-gray-600">{w.location?.name ?? "—"}</td>
                                 <td className="px-4 py-3">
-                                    <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${w.status === "Active" ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-500"}`}>
+                                    <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${w.status === "Active" ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-700"}`}>
                                         {w.status === "Active" ? <CheckCircle className="w-3 h-3" /> : <XCircle className="w-3 h-3" />}
                                         {w.status}
                                     </span>
                                 </td>
                                 <td className="px-4 py-3 text-right">
-                                    <button onClick={() => startEdit(w)} className="p-1.5 hover:bg-purple-50 rounded-lg transition-colors mr-1"><Pencil className="w-3.5 h-3.5 text-gray-400" /></button>
+                                    <button onClick={() => startEdit(w)} className="p-1.5 hover:bg-purple-50 rounded-lg transition-colors mr-1"><Pencil className="w-3.5 h-3.5 text-gray-500" /></button>
                                     <button onClick={() => del(w.id)} className="p-1.5 hover:bg-red-50 rounded-lg transition-colors"><Trash2 className="w-3.5 h-3.5 text-red-400" /></button>
                                 </td>
                             </tr>

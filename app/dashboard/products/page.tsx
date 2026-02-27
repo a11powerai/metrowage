@@ -14,7 +14,7 @@ const schema = z.object({
 type FormData = z.infer<typeof schema>;
 
 const inputCls = "w-full px-3 py-2 bg-white border border-purple-200 rounded-lg text-sm focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-100 text-gray-800 placeholder:text-gray-400";
-const labelCls = "text-xs text-gray-500 mb-1 block font-medium";
+const labelCls = "text-xs text-gray-600 mb-1 block font-medium";
 
 export default function ProductsPage() {
     const [products, setProducts] = useState<any[]>([]);
@@ -84,7 +84,7 @@ export default function ProductsPage() {
                 <div className="bg-white border border-purple-100 rounded-2xl p-6 mb-6 shadow-sm">
                     <div className="flex items-center justify-between mb-4">
                         <h2 className="font-semibold text-gray-800">{editId ? "Edit Product" : "New Product"}</h2>
-                        <button onClick={() => { setShowForm(false); setEditId(null); reset(); }}><X className="w-4 h-4 text-gray-400" /></button>
+                        <button onClick={() => { setShowForm(false); setEditId(null); reset(); }}><X className="w-4 h-4 text-gray-500" /></button>
                     </div>
                     {!editId && (
                         <div className="p-3 bg-purple-50 border border-purple-100 rounded-lg mb-4 text-xs text-purple-700">
@@ -116,7 +116,7 @@ export default function ProductsPage() {
             )}
 
             {filtered.length === 0 && (
-                <div className="bg-white border border-purple-100 rounded-2xl p-10 text-center text-gray-400 shadow-sm">
+                <div className="bg-white border border-purple-100 rounded-2xl p-10 text-center text-gray-500 shadow-sm">
                     {search ? "No products match your search." : "No products yet. Add one above."}
                 </div>
             )}
@@ -128,17 +128,17 @@ export default function ProductsPage() {
                         <div className="flex items-center gap-2 mb-2">
                             <Package className="w-4 h-4 text-purple-400" />
                             <h2 className="font-semibold text-gray-700 text-sm">{cat}</h2>
-                            <span className="text-xs text-gray-400">({catProducts.length})</span>
+                            <span className="text-xs text-gray-500">({catProducts.length})</span>
                         </div>
                         <div className="bg-white border border-purple-100 rounded-2xl overflow-hidden shadow-sm">
                             <table className="w-full text-sm">
                                 <thead>
                                     <tr className="border-b border-purple-50">
-                                        <th className="text-left px-4 py-3 text-gray-500 font-medium text-xs uppercase tracking-wide">ID</th>
-                                        <th className="text-left px-4 py-3 text-gray-500 font-medium text-xs uppercase tracking-wide">Name</th>
-                                        <th className="text-left px-4 py-3 text-gray-500 font-medium text-xs uppercase tracking-wide">Model</th>
-                                        <th className="text-left px-4 py-3 text-gray-500 font-medium text-xs uppercase tracking-wide">Incentive Slabs</th>
-                                        <th className="text-right px-4 py-3 text-gray-500 font-medium text-xs uppercase tracking-wide">Actions</th>
+                                        <th className="text-left px-4 py-3 text-gray-600 font-medium text-xs uppercase tracking-wide">ID</th>
+                                        <th className="text-left px-4 py-3 text-gray-600 font-medium text-xs uppercase tracking-wide">Name</th>
+                                        <th className="text-left px-4 py-3 text-gray-600 font-medium text-xs uppercase tracking-wide">Model</th>
+                                        <th className="text-left px-4 py-3 text-gray-600 font-medium text-xs uppercase tracking-wide">Incentive Slabs</th>
+                                        <th className="text-right px-4 py-3 text-gray-600 font-medium text-xs uppercase tracking-wide">Actions</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -146,7 +146,7 @@ export default function ProductsPage() {
                                         <tr key={p.id} className="border-b border-gray-50 hover:bg-purple-25 transition-colors">
                                             <td className="px-4 py-3 font-mono text-purple-600 font-semibold text-xs">{p.productId}</td>
                                             <td className="px-4 py-3 font-medium text-gray-800">{p.name}</td>
-                                            <td className="px-4 py-3 text-gray-500">{p.model || "—"}</td>
+                                            <td className="px-4 py-3 text-gray-600">{p.model || "—"}</td>
                                             <td className="px-4 py-3">
                                                 <Link href={`/dashboard/products/${p.id}/slabs`}
                                                     className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-purple-50 hover:bg-purple-100 text-purple-700 rounded-lg text-xs transition-colors">
@@ -154,7 +154,7 @@ export default function ProductsPage() {
                                                 </Link>
                                             </td>
                                             <td className="px-4 py-3 text-right">
-                                                <button onClick={() => startEdit(p)} className="p-1.5 hover:bg-purple-50 rounded-lg transition-colors mr-1"><Pencil className="w-3.5 h-3.5 text-gray-400" /></button>
+                                                <button onClick={() => startEdit(p)} className="p-1.5 hover:bg-purple-50 rounded-lg transition-colors mr-1"><Pencil className="w-3.5 h-3.5 text-gray-500" /></button>
                                                 <button onClick={() => del(p.id)} className="p-1.5 hover:bg-red-50 rounded-lg transition-colors"><Trash2 className="w-3.5 h-3.5 text-red-400" /></button>
                                             </td>
                                         </tr>

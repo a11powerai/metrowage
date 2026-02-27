@@ -45,7 +45,7 @@ export default async function DashboardPage() {
             <div className="mb-8">
                 <h1 className="text-2xl font-bold text-gray-900">Dashboard</h1>
                 <p className="text-gray-500 text-sm mt-1">
-                    Welcome back, <span className="font-medium text-purple-700">{session?.user?.name}</span> · <span className="text-gray-400">{role}</span>
+                    Welcome back, <span className="font-medium text-purple-700">{session?.user?.name}</span> · <span className="text-gray-500">{role}</span>
                 </p>
             </div>
 
@@ -58,7 +58,7 @@ export default async function DashboardPage() {
                                 <Icon className={`w-5 h-5 ${s.color}`} />
                             </div>
                             <div className="text-xl font-bold text-gray-900">{s.value}</div>
-                            <div className="text-gray-400 text-xs mt-0.5">{s.label}</div>
+                            <div className="text-gray-500 text-xs mt-0.5">{s.label}</div>
                         </div>
                     );
                 })}
@@ -72,14 +72,14 @@ export default async function DashboardPage() {
                             <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${todayDay.status === "Finalized" ? "bg-green-100 text-green-700" : "bg-yellow-100 text-yellow-700"}`}>
                                 {todayDay.status}
                             </span>
-                            <span className="text-gray-400 text-xs">{todayDay.lines.length} entries</span>
+                            <span className="text-gray-500 text-xs">{todayDay.lines.length} entries</span>
                         </div>
                         <p className="text-gray-500 text-sm">
                             Total payout for today: <span className="text-purple-700 font-bold">{formatCurrency(todayTotal)}</span>
                         </p>
                     </div>
                 ) : (
-                    <p className="text-gray-400 text-sm">No production entries yet for today.</p>
+                    <p className="text-gray-500 text-sm">No production entries yet for today.</p>
                 )}
             </div>
         </div>
