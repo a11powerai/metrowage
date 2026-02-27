@@ -55,61 +55,65 @@ export default function DailyReportPage() {
         <div>
             <div className="flex items-center justify-between mb-6">
                 <div>
-                    <h1 className="text-2xl font-bold">Daily Report</h1>
-                    <p className="text-slate-400 text-sm mt-0.5">Worker-wise production breakdown</p>
+                    <h1 className="text-2xl font-bold text-gray-900">Daily Report</h1>
+                    <p className="text-gray-500 text-sm mt-0.5">Worker-wise production breakdown</p>
                 </div>
                 {data && (
                     <div className="flex gap-2">
-                        <button onClick={exportPDF} className="flex items-center gap-1.5 px-3 py-2 bg-red-600 hover:bg-red-500 rounded-lg text-xs font-medium transition-colors"><Download className="w-3.5 h-3.5" /> PDF</button>
-                        <button onClick={exportExcel} className="flex items-center gap-1.5 px-3 py-2 bg-green-700 hover:bg-green-600 rounded-lg text-xs font-medium transition-colors"><Download className="w-3.5 h-3.5" /> Excel</button>
+                        <button onClick={exportPDF} className="flex items-center gap-1.5 px-3 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-medium transition-colors shadow-sm"><Download className="w-3.5 h-3.5" /> PDF</button>
+                        <button onClick={exportExcel} className="flex items-center gap-1.5 px-3 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-medium transition-colors shadow-sm"><Download className="w-3.5 h-3.5" /> Excel</button>
                     </div>
                 )}
             </div>
 
+
             <div className="flex items-center gap-3 mb-6">
-                <input type="date" value={date} onChange={(e) => setDate(e.target.value)} className="px-3 py-2 bg-slate-800 border border-white/10 rounded-lg text-sm focus:outline-none focus:border-blue-500" />
-                <button onClick={load} disabled={loading} className="px-4 py-2 bg-blue-600 hover:bg-blue-500 rounded-lg text-sm font-medium transition-colors disabled:opacity-60">
+                <input type="date" value={date} onChange={(e) => setDate(e.target.value)} className="px-3 py-2 bg-white border border-purple-200 rounded-lg text-sm focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-200 text-gray-800" />
+                <button onClick={load} disabled={loading} className="px-5 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-xl text-sm font-medium transition-colors disabled:opacity-60 shadow-sm">
                     {loading ? "Loading…" : "Generate Report"}
                 </button>
             </div>
 
+
             {data && (
                 <>
                     <div className="flex items-center gap-4 mb-4">
-                        <div className="text-slate-400 text-sm">Status: <span className={data.status === "Finalized" ? "text-green-400" : "text-yellow-400"}>{data.status || "No Day Found"}</span></div>
-                        <div className="text-slate-400 text-sm">Factory Total: <span className="text-white font-bold">{formatCurrency(data.factoryTotal)}</span></div>
+                        <div className="text-gray-500 text-sm">Status: <span className={`font-bold ${data.status === "Finalized" ? "text-emerald-600" : "text-amber-600"}`}>{data.status || "No Day Found"}</span></div>
+                        <div className="text-gray-500 text-sm">Factory Total: <span className="text-gray-900 font-bold">{formatCurrency(data.factoryTotal)}</span></div>
                     </div>
 
-                    {data.workers?.length === 0 && <p className="text-slate-500 text-sm">No entries for this date.</p>}
+                    {data.workers?.length === 0 && <p className="text-gray-400 text-sm py-10 text-center bg-gray-50 rounded-xl border border-dashed border-gray-200">No entries for this date.</p>}
+
 
                     {data.workers?.map((w: any) => (
-                        <div key={w.name} className="bg-slate-800/50 border border-white/10 rounded-xl mb-4 overflow-hidden">
-                            <div className="flex items-center justify-between px-4 py-3 border-b border-white/10 bg-white/5">
-                                <span className="font-semibold">{w.name}</span>
-                                <span className="text-green-400 font-bold text-sm">{formatCurrency(w.total)}</span>
+                        <div key={w.name} className="bg-white border border-purple-100 rounded-2xl mb-4 overflow-hidden shadow-sm">
+                            <div className="flex items-center justify-between px-4 py-3 border-b border-purple-50 bg-purple-25">
+                                <span className="font-semibold text-gray-800">{w.name}</span>
+                                <span className="text-emerald-600 font-bold">{formatCurrency(w.total)}</span>
                             </div>
                             <table className="w-full text-sm">
                                 <thead>
-                                    <tr className="border-b border-white/10">
-                                        <th className="text-left px-4 py-2.5 text-slate-400 font-medium text-xs">Product</th>
-                                        <th className="text-right px-4 py-2.5 text-slate-400 font-medium text-xs">Qty</th>
-                                        <th className="text-right px-4 py-2.5 text-slate-400 font-medium text-xs">Rate</th>
-                                        <th className="text-right px-4 py-2.5 text-slate-400 font-medium text-xs">Line Total</th>
+                                    <tr className="border-b border-purple-50">
+                                        <th className="text-left px-4 py-2.5 text-gray-400 font-medium text-[10px] uppercase tracking-wider">Product</th>
+                                        <th className="text-right px-4 py-2.5 text-gray-400 font-medium text-[10px] uppercase tracking-wider">Qty</th>
+                                        <th className="text-right px-4 py-2.5 text-gray-400 font-medium text-[10px] uppercase tracking-wider">Rate</th>
+                                        <th className="text-right px-4 py-2.5 text-gray-400 font-medium text-[10px] uppercase tracking-wider">Line Total</th>
                                     </tr>
                                 </thead>
                                 <tbody>
                                     {w.lines.map((l: any, i: number) => (
-                                        <tr key={i} className="border-b border-white/5">
-                                            <td className="px-4 py-2.5">{l.product}</td>
-                                            <td className="px-4 py-2.5 text-right">{l.quantity}</td>
-                                            <td className="px-4 py-2.5 text-right text-blue-400">Rs. {l.appliedRate}</td>
-                                            <td className="px-4 py-2.5 text-right text-green-400 font-semibold">{formatCurrency(l.lineTotal)}</td>
+                                        <tr key={i} className="border-b border-gray-50 hover:bg-purple-25/30 transition-colors">
+                                            <td className="px-4 py-2.5 text-gray-700">{l.product}</td>
+                                            <td className="px-4 py-2.5 text-right text-gray-600 font-medium">{l.quantity}</td>
+                                            <td className="px-4 py-2.5 text-right text-blue-600">Rs. {l.appliedRate}</td>
+                                            <td className="px-4 py-2.5 text-right text-emerald-600 font-bold">{formatCurrency(l.lineTotal)}</td>
                                         </tr>
                                     ))}
                                 </tbody>
                             </table>
                         </div>
                     ))}
+
                 </>
             )}
         </div>

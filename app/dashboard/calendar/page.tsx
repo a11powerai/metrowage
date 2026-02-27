@@ -142,21 +142,22 @@ export default function CalendarPage() {
                         return (
                             <div key={day.toISOString()}
                                 className={`min-h-[56px] p-1.5 rounded-xl text-xs transition-colors relative group
-                                    ${today ? "bg-purple-600 text-white" : holiday ? "bg-red-50 border border-red-100" : isSun ? "bg-gray-50" : "hover:bg-purple-25"}`}>
-                                <div className={`font-semibold text-sm ${today ? "text-white" : holiday ? "text-red-500" : isSun ? "text-red-400" : "text-gray-700"}`}>
+                                    ${today ? "bg-purple-600 text-white shadow-md z-10 scale-105" : holiday ? "bg-red-50 border border-red-100" : isSun ? "bg-gray-50/50" : "hover:bg-purple-50"}`}>
+                                <div className={`font-bold text-sm ${today ? "text-white" : holiday ? "text-red-600" : isSun ? "text-red-400" : "text-gray-700"}`}>
                                     {format(day, "d")}
                                 </div>
                                 {holiday && (
-                                    <div className="flex items-start justify-between mt-0.5">
-                                        <span className="text-red-600 leading-tight text-[10px]">{holiday.name}</span>
+                                    <div className="flex items-start justify-between mt-1">
+                                        <span className="text-red-500 leading-tight text-[9px] font-medium">{holiday.name}</span>
                                         {holiday.editable && (
-                                            <button onClick={() => delHoliday(holiday.id)} className="opacity-0 group-hover:opacity-100 transition-opacity">
+                                            <button onClick={() => delHoliday(holiday.id)} className="opacity-0 group-hover:opacity-100 transition-opacity p-0.5 hover:bg-red-100 rounded">
                                                 <Trash2 className="w-2.5 h-2.5 text-red-400" />
                                             </button>
                                         )}
                                     </div>
                                 )}
                             </div>
+
                         );
                     })}
                 </div>

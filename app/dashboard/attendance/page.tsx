@@ -109,18 +109,19 @@ export default function AttendancePage() {
             </div>
 
             {/* Summary bar */}
-            <div className="grid grid-cols-3 gap-3 mb-6">
+            <div className="grid grid-cols-3 gap-4 mb-8">
                 {[
-                    { label: "Present", val: records.filter(r => r.status === "Present").length, color: "text-green-600", bg: "bg-green-50" },
-                    { label: "Absent", val: records.filter(r => r.status === "Absent").length, color: "text-red-500", bg: "bg-red-50" },
-                    { label: "Not Marked", val: activeWorkers.filter(w => !getRecord(w.id)).length, color: "text-gray-500", bg: "bg-gray-50" },
+                    { label: "Present Today", val: records.filter(r => r.status === "Present").length, color: "text-green-600", bg: "bg-green-50", border: "border-green-100" },
+                    { label: "Absent Today", val: records.filter(r => r.status === "Absent").length, color: "text-red-500", bg: "bg-red-50", border: "border-red-100" },
+                    { label: "Pending Marking", val: activeWorkers.filter(w => !getRecord(w.id)).length, color: "text-purple-600", bg: "bg-purple-50", border: "border-purple-100" },
                 ].map(s => (
-                    <div key={s.label} className={`${s.bg} rounded-2xl p-4 border border-gray-100`}>
-                        <div className={`text-2xl font-bold ${s.color}`}>{s.val}</div>
-                        <div className="text-gray-500 text-xs">{s.label}</div>
+                    <div key={s.label} className={`${s.bg} rounded-3xl p-5 border ${s.border} shadow-sm transition-all hover:scale-[1.02]`}>
+                        <div className={`text-3xl font-bold ${s.color}`}>{s.val}</div>
+                        <div className="text-gray-500 text-xs font-medium uppercase tracking-wider mt-1">{s.label}</div>
                     </div>
                 ))}
             </div>
+
 
             <div className="bg-white border border-purple-100 rounded-2xl overflow-hidden shadow-sm">
                 <table className="w-full text-sm">
@@ -170,24 +171,25 @@ export default function AttendancePage() {
                                         {monthStat ? `${monthStat.days}d / ${monthStat.hours.toFixed(1)}h` : "—"}
                                     </td>
                                     <td className="px-4 py-3 text-right">
-                                        <div className="flex items-center justify-end gap-1">
+                                        <div className="flex items-center justify-end gap-2">
                                             {!rec && (
                                                 <>
-                                                    <button onClick={() => checkIn(w)} disabled={loading} className="px-2 py-1 bg-green-100 hover:bg-green-200 text-green-700 rounded-lg text-xs flex items-center gap-1 transition-colors">
-                                                        <LogIn className="w-3 h-3" /> In
+                                                    <button onClick={() => checkIn(w)} disabled={loading} className="px-3 py-1.5 bg-green-600 hover:bg-green-700 text-white rounded-xl text-xs font-semibold flex items-center gap-1 transition-all shadow-sm active:scale-95">
+                                                        <LogIn className="w-3 h-3" /> Check In
                                                     </button>
-                                                    <button onClick={() => markAbsent(w)} disabled={loading} className="px-2 py-1 bg-red-50 hover:bg-red-100 text-red-500 rounded-lg text-xs flex items-center gap-1 transition-colors">
+                                                    <button onClick={() => markAbsent(w)} disabled={loading} className="px-3 py-1.5 bg-white border border-red-200 hover:bg-red-50 text-red-500 rounded-xl text-xs font-semibold flex items-center gap-1 transition-all active:scale-95">
                                                         <XCircle className="w-3 h-3" /> Absent
                                                     </button>
                                                 </>
                                             )}
                                             {rec?.status === "Present" && !rec.checkOutTime && (
-                                                <button onClick={() => checkOut(rec)} disabled={loading} className="px-2 py-1 bg-purple-100 hover:bg-purple-200 text-purple-700 rounded-lg text-xs flex items-center gap-1 transition-colors">
-                                                    <LogOut className="w-3 h-3" /> Out
+                                                <button onClick={() => checkOut(rec)} disabled={loading} className="px-3 py-1.5 bg-purple-600 hover:bg-purple-700 text-white rounded-xl text-xs font-semibold flex items-center gap-1 transition-all shadow-sm active:scale-95">
+                                                    <LogOut className="w-3 h-3" /> Check Out
                                                 </button>
                                             )}
-                                            {rec?.checkOutTime && <span className="text-xs text-green-600 font-medium">✓ Done</span>}
+                                            {rec?.checkOutTime && <span className="text-xs text-green-600 font-bold bg-green-50 px-2 py-1 rounded-lg border border-green-100">✓ Completed</span>}
                                         </div>
+
                                     </td>
                                 </tr>
                             );
