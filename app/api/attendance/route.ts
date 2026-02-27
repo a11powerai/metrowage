@@ -3,7 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { startOfDay } from "date-fns";
 
 export async function GET(req: Request) {
-    const { searchParams } = new URL(req.url);
+    const { searchParams } = new URL(req.url, "http://n");
     const date = searchParams.get("date");
     const workerId = searchParams.get("workerId");
 

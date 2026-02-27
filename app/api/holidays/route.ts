@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 
 export async function GET(req: Request) {
-    const { searchParams } = new URL(req.url);
+    const { searchParams } = new URL(req.url, "http://n");
     const year = searchParams.get("year") ?? new Date().getFullYear().toString();
     const holidays = await prisma.holiday.findMany({
         where: {
@@ -39,7 +39,7 @@ export async function POST(req: Request) {
 }
 
 export async function DELETE(req: Request) {
-    const { searchParams } = new URL(req.url);
+    const { searchParams } = new URL(req.url, "http://n");
     const id = searchParams.get("id");
     if (!id) return NextResponse.json({ error: "id required" }, { status: 400 });
     await prisma.holiday.delete({ where: { id: Number(id) } });
