@@ -23,7 +23,7 @@ export default function ProductsPage() {
     const [loading, setLoading] = useState(false);
     const [search, setSearch] = useState("");
 
-    const { register, handleSubmit, reset, setValue, formState: { errors } } = useForm<FormData>({ resolver: zodResolver(schema) });
+    const { register, handleSubmit, reset, setValue, formState: { errors } } = useForm<FormData>({ resolver: zodResolver(schema) as any });
 
     const load = async () => {
         const res = await fetch("/api/products");

@@ -31,7 +31,7 @@ export default function LeavePage() {
     const [loading, setLoading] = useState(false);
 
     const { register, handleSubmit, reset, formState: { errors } } = useForm<FormData>({
-        resolver: zodResolver(schema),
+        resolver: zodResolver(schema) as any,
         defaultValues: { leaveType: "Annual" },
     });
 

@@ -26,7 +26,7 @@ export default function RunPayrollPage() {
     const [msg, setMsg] = useState<{ type: "success" | "error"; text: string } | null>(null);
     const today = new Date().toISOString().split("T")[0];
 
-    const { register, handleSubmit, reset, formState: { errors } } = useForm<RunFormData>({ resolver: zodResolver(schema), defaultValues: { periodStart: today, periodEnd: today } });
+    const { register, handleSubmit, reset, formState: { errors } } = useForm<RunFormData>({ resolver: zodResolver(schema) as any, defaultValues: { periodStart: today, periodEnd: today } });
 
 
     const load = async () => {

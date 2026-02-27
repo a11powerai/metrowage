@@ -30,7 +30,7 @@ export default function UsersPage() {
     const [error, setError] = useState("");
 
     const { register, handleSubmit, reset, formState: { errors } } = useForm<FormData>({
-        resolver: zodResolver(schema),
+        resolver: zodResolver(schema) as any,
         defaultValues: { role: "Supervisor" },
     });
 

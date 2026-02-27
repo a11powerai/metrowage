@@ -29,7 +29,7 @@ export default function WorkersPage() {
     const [search, setSearch] = useState("");
 
     const { register, handleSubmit, reset, setValue, watch, formState: { errors } } = useForm<FormData>({
-        resolver: zodResolver(schema),
+        resolver: zodResolver(schema) as any,
         defaultValues: { status: "Active", allowGeoCheckin: false },
     });
 

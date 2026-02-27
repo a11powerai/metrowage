@@ -24,7 +24,7 @@ export default function LocationsPage() {
     const [loading, setLoading] = useState(false);
 
     const { register, handleSubmit, reset, setValue, formState: { errors } } = useForm<FormData>({
-        resolver: zodResolver(schema),
+        resolver: zodResolver(schema) as any,
         defaultValues: { radius: "200" },
     });
 
