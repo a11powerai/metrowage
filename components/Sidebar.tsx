@@ -89,6 +89,7 @@ const navItems = [
         icon: BarChart3,
         roles: ["SuperAdmin", "Admin"],
         children: [
+            { label: "Attendance", href: "/dashboard/reports/attendance", icon: Clock },
             { label: "Daily", href: "/dashboard/reports/daily", icon: Calendar },
             { label: "Weekly", href: "/dashboard/reports/weekly", icon: BarChart3 },
             { label: "Monthly", href: "/dashboard/reports/monthly", icon: BarChart3 },

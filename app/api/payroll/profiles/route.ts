@@ -10,8 +10,19 @@ export async function POST(req: Request) {
     const body = await req.json();
     const profile = await prisma.workerSalaryProfile.upsert({
         where: { workerId: Number(body.workerId) },
-        update: { basicSalary: body.basicSalary, overtimeRate: body.overtimeRate, workerType: body.workerType },
-        create: { workerId: Number(body.workerId), basicSalary: body.basicSalary, overtimeRate: body.overtimeRate, workerType: body.workerType },
+        update: {
+            basicSalary: body.basicSalary,
+            salaryFrequency: body.salaryFrequency ?? "Monthly",
+            overtimeRate: body.overtimeRate,
+            workerType: body.workerType,
+        },
+        create: {
+            workerId: Number(body.workerId),
+            basicSalary: body.basicSalary,
+            salaryFrequency: body.salaryFrequency ?? "Monthly",
+            overtimeRate: body.overtimeRate,
+            workerType: body.workerType,
+        },
     });
     return NextResponse.json(profile, { status: 201 });
 }

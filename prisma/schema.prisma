@@ -144,6 +144,7 @@ model WorkerSalaryProfile {
   id              Int     @id @default(autoincrement())
   workerId        Int     @unique
   basicSalary     Float   @default(0)
+  salaryFrequency String  @default("Monthly")  // Monthly | Daily
   overtimeRate    Float   @default(0)   // per hour
   workerType      String  @default("Both")  // Salary | PieceRate | Both
   worker          Worker  @relation(fields: [workerId], references: [id], onDelete: Cascade)
