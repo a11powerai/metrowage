@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod"; import { zodResolver } from "@hookform/resolvers/zod";
 import { Plus, Trash2, X } from "lucide-react";
+import { format } from "date-fns";
 import { formatCurrency } from "@/lib/utils";
 
 const schema = z.object({
@@ -10,6 +11,7 @@ const schema = z.object({
     type: z.enum(["Loan", "Advance", "Statutory", "Penalty", "Other"]),
     description: z.string().min(1),
     amount: z.coerce.number().min(1),
+    frequency: z.enum(["OneTime", "Daily", "Weekly", "Monthly"]),
     periodStart: z.string().min(1),
     periodEnd: z.string().min(1),
 });
@@ -23,6 +25,13 @@ const TYPE_COLORS: Record<string, string> = {
     Other: "bg-gray-100 text-gray-700",
 };
 
+const FREQ_COLORS: Record<string, string> = {
+    OneTime: "bg-gray-100 text-gray-600",
+    Daily: "bg-blue-100 text-blue-700",
+    Weekly: "bg-indigo-100 text-indigo-700",
+    Monthly: "bg-purple-100 text-purple-700",
+};
+
 const inputCls = "w-full px-3 py-2 bg-white border border-purple-200 rounded-lg text-sm focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-200 text-gray-800 placeholder:text-gray-400";
 const labelCls = "text-xs text-gray-500 mb-1 block font-medium";
 
@@ -34,9 +43,9 @@ export default function DeductionsPage() {
     const [loading, setLoading] = useState(false);
     const today = new Date().toISOString().split("T")[0];
 
-    const { register, handleSubmit, reset, setValue, formState: { errors } } = useForm<DeductionFormData>({
+    const { register, handleSubmit, reset, formState: { errors } } = useForm<DeductionFormData>({
         resolver: zodResolver(schema) as any,
-        defaultValues: { type: "Loan", periodStart: today, periodEnd: today }
+        defaultValues: { type: "Loan", frequency: "OneTime", periodStart: today, periodEnd: today }
     });
 
     const load = async () => {
@@ -48,7 +57,7 @@ export default function DeductionsPage() {
     const onSubmit = async (data: DeductionFormData) => {
         setLoading(true);
         await fetch("/api/payroll/deductions", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(data) });
-        reset({ type: "Loan", periodStart: today, periodEnd: today }); setShowForm(false); setLoading(false); load();
+        reset({ type: "Loan", frequency: "OneTime", periodStart: today, periodEnd: today }); setShowForm(false); setLoading(false); load();
     };
 
     const del = async (id: number) => { if (!confirm("Remove?")) return; await fetch(`/api/payroll/deductions/${id}`, { method: "DELETE" }); load(); };
@@ -60,7 +69,7 @@ export default function DeductionsPage() {
                     <h1 className="text-2xl font-bold text-gray-900">Deductions</h1>
                     <p className="text-gray-500 text-sm mt-0.5">Loans, advances, statutory, penalties per worker per period</p>
                 </div>
-                <button onClick={() => { setShowForm(true); reset({ type: "Loan", periodStart: today, periodEnd: today }); }} className="flex items-center gap-2 px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-xl text-sm font-medium transition-colors shadow-sm">
+                <button onClick={() => { setShowForm(true); reset({ type: "Loan", frequency: "OneTime", periodStart: today, periodEnd: today }); }} className="flex items-center gap-2 px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-xl text-sm font-medium transition-colors shadow-sm">
                     <Plus className="w-4 h-4" /> Add Deduction
                 </button>
             </div>
@@ -87,6 +96,15 @@ export default function DeductionsPage() {
                             </select>
                         </div>
                         <div>
+                            <label className={labelCls}>Frequency</label>
+                            <select {...register("frequency")} className={inputCls}>
+                                <option value="OneTime">One-Time</option>
+                                <option value="Daily">Daily</option>
+                                <option value="Weekly">Weekly</option>
+                                <option value="Monthly">Monthly</option>
+                            </select>
+                        </div>
+                        <div>
                             <label className={labelCls}>Description</label>
                             <input {...register("description")} placeholder="e.g. EPF deduction" className={inputCls} />
                         </div>
@@ -94,6 +112,7 @@ export default function DeductionsPage() {
                             <label className={labelCls}>Amount (Rs.)</label>
                             <input type="number" {...register("amount")} className={inputCls} />
                         </div>
+                        <div></div>
                         <div>
                             <label className={labelCls}>Period Start</label>
                             <input type="date" {...register("periodStart")} className={inputCls} />
@@ -102,6 +121,7 @@ export default function DeductionsPage() {
                             <label className={labelCls}>Period End</label>
                             <input type="date" {...register("periodEnd")} className={inputCls} />
                         </div>
+                        <div></div>
                         <div className="lg:col-span-3 flex gap-3">
                             <button type="submit" disabled={loading} className="px-5 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-xl text-sm font-medium disabled:opacity-60 transition-colors shadow-sm">
                                 {loading ? "Saving…" : "Add"}
@@ -119,12 +139,14 @@ export default function DeductionsPage() {
                             <th className="text-left px-4 py-3 text-gray-500 font-medium text-xs uppercase tracking-wide">Worker</th>
                             <th className="text-left px-4 py-3 text-gray-500 font-medium text-xs uppercase tracking-wide">Type</th>
                             <th className="text-left px-4 py-3 text-gray-500 font-medium text-xs uppercase tracking-wide">Description</th>
+                            <th className="text-left px-4 py-3 text-gray-500 font-medium text-xs uppercase tracking-wide">Frequency</th>
+                            <th className="text-left px-4 py-3 text-gray-500 font-medium text-xs uppercase tracking-wide">Period</th>
                             <th className="text-right px-4 py-3 text-gray-500 font-medium text-xs uppercase tracking-wide">Amount</th>
                             <th className="text-right px-4 py-3 text-gray-500 font-medium text-xs uppercase tracking-wide">Action</th>
                         </tr>
                     </thead>
                     <tbody>
-                        {deductions.length === 0 && <tr><td colSpan={5} className="text-center py-10 text-gray-400">No deductions defined.</td></tr>}
+                        {deductions.length === 0 && <tr><td colSpan={7} className="text-center py-10 text-gray-400">No deductions defined.</td></tr>}
                         {deductions.map((d: any) => {
                             const worker = workers.find(w => w.id === d.workerId);
                             return (
@@ -132,6 +154,10 @@ export default function DeductionsPage() {
                                     <td className="px-4 py-3 font-medium text-gray-800">{worker?.name ?? "—"}</td>
                                     <td className="px-4 py-3"><span className={`px-2 py-0.5 rounded-full text-xs font-medium ${TYPE_COLORS[d.type]}`}>{d.type}</span></td>
                                     <td className="px-4 py-3 text-gray-500">{d.description}</td>
+                                    <td className="px-4 py-3"><span className={`px-2 py-0.5 rounded-full text-xs font-medium ${FREQ_COLORS[d.frequency] ?? "bg-gray-100 text-gray-600"}`}>{d.frequency}</span></td>
+                                    <td className="px-4 py-3 text-gray-500 text-xs">
+                                        {d.periodStart ? format(new Date(d.periodStart), "dd MMM yyyy") : ""} — {d.periodEnd ? format(new Date(d.periodEnd), "dd MMM yyyy") : ""}
+                                    </td>
                                     <td className="px-4 py-3 text-right text-red-600 font-bold">- {formatCurrency(d.amount)}</td>
                                     <td className="px-4 py-3 text-right">
                                         <button onClick={() => del(d.id)} className="p-1.5 hover:bg-red-50 rounded-lg transition-colors"><Trash2 className="w-3.5 h-3.5 text-red-400" /></button>

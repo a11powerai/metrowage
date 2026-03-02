@@ -32,6 +32,33 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
 
 export async function DELETE(_: Request, { params }: { params: Promise<{ id: string }> }) {
     const { id } = await params;
-    await prisma.worker.delete({ where: { id: Number(id) } });
+    const wid = Number(id);
+
+    await prisma.$transaction(async (tx) => {
+        // Delete payroll line items first (they reference payroll records)
+        const pRecords = await tx.payrollRecord.findMany({
+            where: { workerId: wid },
+            select: { id: true },
+        });
+        const rIds = pRecords.map((r) => r.id);
+
+        if (rIds.length > 0) {
+            await tx.assemblyPayrollLine.deleteMany({ where: { recordId: { in: rIds } } });
+            await tx.allowancePayrollLine.deleteMany({ where: { recordId: { in: rIds } } });
+            await tx.deductionPayrollLine.deleteMany({ where: { recordId: { in: rIds } } });
+            await tx.commissionPayrollLine.deleteMany({ where: { recordId: { in: rIds } } });
+        }
+
+        await tx.payrollRecord.deleteMany({ where: { workerId: wid } });
+        await tx.productionLine.deleteMany({ where: { workerId: wid } });
+        await tx.attendance.deleteMany({ where: { workerId: wid } });
+        await tx.leave.deleteMany({ where: { workerId: wid } });
+        await tx.deduction.deleteMany({ where: { workerId: wid } });
+        await tx.allowance.deleteMany({ where: { workerId: wid } });
+        await tx.commission.deleteMany({ where: { workerId: wid } });
+        // salaryProfile has onDelete: Cascade so it auto-deletes
+        await tx.worker.delete({ where: { id: wid } });
+    });
+
     return NextResponse.json({ ok: true });
 }

@@ -4,10 +4,12 @@ import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Pencil, X } from "lucide-react";
+import { formatCurrency } from "@/lib/utils";
 
 const schema = z.object({
     workerId: z.coerce.number().min(1, "Select worker"),
     basicSalary: z.coerce.number().min(0),
+    salaryFrequency: z.enum(["Monthly", "Daily"]),
     overtimeRate: z.coerce.number().min(0),
     workerType: z.enum(["Salary", "PieceRate", "Both"]),
 });
@@ -25,7 +27,7 @@ export default function SalaryProfilesPage() {
 
     const { register, handleSubmit, reset, setValue, formState: { errors } } = useForm<ProfileFormData>({
         resolver: zodResolver(schema) as any,
-        defaultValues: { workerType: "Both" },
+        defaultValues: { workerType: "Both", salaryFrequency: "Monthly" },
     });
 
 
@@ -39,13 +41,14 @@ export default function SalaryProfilesPage() {
     const onSubmit = async (data: ProfileFormData) => {
         setLoading(true);
         await fetch("/api/payroll/profiles", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(data) });
-        reset({ workerType: "Both" }); setShowForm(false); setLoading(false); load();
+        reset({ workerType: "Both", salaryFrequency: "Monthly" }); setShowForm(false); setLoading(false); load();
     };
 
 
     const startEdit = (p: any) => {
         setValue("workerId", p.workerId);
         setValue("basicSalary", p.basicSalary);
+        setValue("salaryFrequency", p.salaryFrequency ?? "Monthly");
         setValue("overtimeRate", p.overtimeRate);
         setValue("workerType", p.workerType);
         setShowForm(true);
@@ -65,7 +68,7 @@ export default function SalaryProfilesPage() {
                     <h1 className="text-2xl font-bold text-gray-900">Worker Salary Profiles</h1>
                     <p className="text-gray-500 text-sm mt-0.5">Define basic salary, overtime rate, and worker type</p>
                 </div>
-                <button onClick={() => { setShowForm(true); reset({ workerType: "Both" }); }} className="flex items-center gap-2 px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-xl text-sm font-medium transition-colors shadow-sm">
+                <button onClick={() => { setShowForm(true); reset({ workerType: "Both", salaryFrequency: "Monthly" }); }} className="flex items-center gap-2 px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-xl text-sm font-medium transition-colors shadow-sm">
                     + Add / Update Profile
                 </button>
             </div>
@@ -77,7 +80,7 @@ export default function SalaryProfilesPage() {
                         <h2 className="font-semibold text-gray-800">Salary Profile</h2>
                         <button onClick={() => setShowForm(false)}><X className="w-4 h-4 text-gray-400" /></button>
                     </div>
-                    <form onSubmit={handleSubmit(onSubmit)} className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                    <form onSubmit={handleSubmit(onSubmit)} className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                         <div>
                             <label className={labelCls}>Worker</label>
                             <select {...register("workerId")} className={inputCls}>
@@ -91,6 +94,13 @@ export default function SalaryProfilesPage() {
                             <input type="number" step="1" {...register("basicSalary")} className={inputCls} />
                         </div>
                         <div>
+                            <label className={labelCls}>Salary Paid Per</label>
+                            <select {...register("salaryFrequency")} className={inputCls}>
+                                <option value="Monthly">Monthly</option>
+                                <option value="Daily">Daily (per day worked)</option>
+                            </select>
+                        </div>
+                        <div>
                             <label className={labelCls}>OT Rate / Hour (Rs.)</label>
                             <input type="number" step="0.5" {...register("overtimeRate")} className={inputCls} />
                         </div>
@@ -102,7 +112,8 @@ export default function SalaryProfilesPage() {
                                 <option value="PieceRate">Assembly Only</option>
                             </select>
                         </div>
-                        <div className="lg:col-span-4 flex gap-3">
+                        <div></div>
+                        <div className="lg:col-span-3 flex gap-3">
                             <button type="submit" disabled={loading} className="px-5 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-xl text-sm font-medium disabled:opacity-60 transition-colors shadow-sm">{loading ? "Saving…" : "Save Profile"}</button>
                             <button type="button" onClick={() => setShowForm(false)} className="px-5 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl text-sm transition-colors">Cancel</button>
                         </div>
@@ -117,17 +128,23 @@ export default function SalaryProfilesPage() {
                         <tr className="border-b border-purple-50">
                             <th className="text-left px-4 py-3 text-gray-500 font-medium text-xs uppercase tracking-wide">Worker</th>
                             <th className="text-right px-4 py-3 text-gray-500 font-medium text-xs uppercase tracking-wide">Basic Salary</th>
+                            <th className="text-left px-4 py-3 text-gray-500 font-medium text-xs uppercase tracking-wide">Paid Per</th>
                             <th className="text-right px-4 py-3 text-gray-500 font-medium text-xs uppercase tracking-wide">OT Rate/Hr</th>
                             <th className="text-left px-4 py-3 text-gray-500 font-medium text-xs uppercase tracking-wide">Type</th>
                             <th className="text-right px-4 py-3 text-gray-500 font-medium text-xs uppercase tracking-wide">Actions</th>
                         </tr>
                     </thead>
                     <tbody>
-                        {profiles.length === 0 && <tr><td colSpan={5} className="text-center py-10 text-gray-400">No profiles set up yet.</td></tr>}
+                        {profiles.length === 0 && <tr><td colSpan={6} className="text-center py-10 text-gray-400">No profiles set up yet.</td></tr>}
                         {profiles.map((p: any) => (
                             <tr key={p.id} className="border-b border-gray-50 hover:bg-purple-25 transition-colors">
                                 <td className="px-4 py-3 font-medium text-gray-800">{p.worker?.name}</td>
-                                <td className="px-4 py-3 text-right text-emerald-600 font-bold">Rs. {p.basicSalary.toLocaleString()}</td>
+                                <td className="px-4 py-3 text-right text-emerald-600 font-bold">{formatCurrency(p.basicSalary)}</td>
+                                <td className="px-4 py-3">
+                                    <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${(p.salaryFrequency ?? "Monthly") === "Daily" ? "bg-orange-100 text-orange-700" : "bg-blue-100 text-blue-700"}`}>
+                                        {(p.salaryFrequency ?? "Monthly") === "Daily" ? "Per Day" : "Per Month"}
+                                    </span>
+                                </td>
                                 <td className="px-4 py-3 text-right text-blue-600">Rs. {p.overtimeRate}/hr</td>
                                 <td className="px-4 py-3"><span className={`px-2 py-0.5 rounded-full text-xs font-medium ${TYPE_COLORS[p.workerType]}`}>{p.workerType}</span></td>
                                 <td className="px-4 py-3 text-right">

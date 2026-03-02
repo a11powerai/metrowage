@@ -8,20 +8,28 @@ function diffHours(a: Date, b: Date) {
 export async function PATCH(req: Request, { params }: { params: Promise<{ id: string }> }) {
     const { id } = await params;
     const body = await req.json();
-    const { checkOutTime, status } = body;
+    const { checkInTime, checkOutTime, status } = body;
 
     const existing = await prisma.attendance.findUnique({ where: { id: Number(id) } });
-    let hoursWorked = existing?.hoursWorked ?? 0;
-    if (checkOutTime && existing?.checkInTime) {
-        hoursWorked = parseFloat(diffHours(existing.checkInTime, new Date(checkOutTime)).toFixed(2));
+    if (!existing) return NextResponse.json({ error: "Not found" }, { status: 404 });
+
+    const newCheckIn = checkInTime ? new Date(checkInTime) : existing.checkInTime;
+    const newCheckOut = checkOutTime !== undefined
+        ? (checkOutTime ? new Date(checkOutTime) : null)
+        : existing.checkOutTime;
+
+    let hoursWorked = existing.hoursWorked ?? 0;
+    if (newCheckIn && newCheckOut) {
+        hoursWorked = parseFloat(diffHours(newCheckIn, newCheckOut).toFixed(2));
     }
 
     const record = await prisma.attendance.update({
         where: { id: Number(id) },
         data: {
-            checkOutTime: checkOutTime ? new Date(checkOutTime) : undefined,
+            checkInTime: newCheckIn ?? undefined,
+            checkOutTime: newCheckOut,
             hoursWorked,
-            status: status ?? existing?.status,
+            status: status ?? existing.status,
         },
     });
     return NextResponse.json(record);

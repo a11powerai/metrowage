@@ -1,7 +1,8 @@
 "use client";
 import { useEffect, useState, useCallback } from "react";
 import { format, startOfDay } from "date-fns";
-import { Clock, LogIn, LogOut, Calendar, CheckCircle, XCircle, AlertCircle } from "lucide-react";
+import { Clock, LogIn, LogOut, Calendar, CheckCircle, XCircle, AlertCircle, Pencil, X } from "lucide-react";
+import { useSession } from "next-auth/react";
 
 const statusColors: Record<string, string> = {
     Present: "bg-green-100 text-green-700",
@@ -11,11 +12,20 @@ const statusColors: Record<string, string> = {
 };
 
 export default function AttendancePage() {
+    const { data: session } = useSession();
+    const role = (session?.user as any)?.role as string;
+    const canEdit = role === "SuperAdmin" || role === "Admin";
+
     const [workers, setWorkers] = useState<any[]>([]);
     const [records, setRecords] = useState<any[]>([]);
     const [date, setDate] = useState(format(new Date(), "yyyy-MM-dd"));
     const [loading, setLoading] = useState(false);
     const [monthStats, setMonthStats] = useState<{ workerId: number; hours: number; days: number }[]>([]);
+    const [editRec, setEditRec] = useState<any>(null);
+    const [editCheckIn, setEditCheckIn] = useState("");
+    const [editCheckOut, setEditCheckOut] = useState("");
+    const [editStatus, setEditStatus] = useState("");
+    const [editLoading, setEditLoading] = useState(false);
 
     const loadData = useCallback(async () => {
         const [wRes, aRes] = await Promise.all([
@@ -28,7 +38,6 @@ export default function AttendancePage() {
         setRecords(att);
     }, [date]);
 
-    // Monthly hours for current month
     const loadMonthStats = async () => {
         const now = new Date();
         const start = format(new Date(now.getFullYear(), now.getMonth(), 1), "yyyy-MM-dd");
@@ -88,6 +97,31 @@ export default function AttendancePage() {
         loadData(); setLoading(false);
     };
 
+    const openEdit = (rec: any) => {
+        setEditRec(rec);
+        setEditCheckIn(rec.checkInTime ? format(new Date(rec.checkInTime), "yyyy-MM-dd HH:mm") : "");
+        setEditCheckOut(rec.checkOutTime ? format(new Date(rec.checkOutTime), "yyyy-MM-dd HH:mm") : "");
+        setEditStatus(rec.status);
+    };
+
+    const saveEdit = async () => {
+        if (!editRec) return;
+        setEditLoading(true);
+        const toISO = (val: string) => val ? new Date(val).toISOString() : null;
+        await fetch(`/api/attendance/${editRec.id}`, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                checkInTime: toISO(editCheckIn),
+                checkOutTime: toISO(editCheckOut),
+                status: editStatus,
+            }),
+        });
+        setEditRec(null);
+        setEditLoading(false);
+        loadData();
+    };
+
     const activeWorkers = workers.filter(w => w.status === "Active");
 
     return (
@@ -122,6 +156,46 @@ export default function AttendancePage() {
                 ))}
             </div>
 
+            {/* Edit modal */}
+            {editRec && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+                    <div className="bg-white rounded-2xl p-6 shadow-xl w-full max-w-sm mx-4">
+                        <div className="flex items-center justify-between mb-4">
+                            <h2 className="font-semibold text-gray-800">Edit Attendance</h2>
+                            <button onClick={() => setEditRec(null)}><X className="w-4 h-4 text-gray-400" /></button>
+                        </div>
+                        <div className="space-y-3">
+                            <div>
+                                <label className="text-xs text-gray-500 mb-1 block font-medium">Status</label>
+                                <select value={editStatus} onChange={e => setEditStatus(e.target.value)}
+                                    className="w-full px-3 py-2 bg-white border border-purple-200 rounded-lg text-sm focus:outline-none focus:border-purple-500 text-gray-800">
+                                    {["Present", "Absent", "Leave", "Holiday"].map(s => <option key={s}>{s}</option>)}
+                                </select>
+                            </div>
+                            <div>
+                                <label className="text-xs text-gray-500 mb-1 block font-medium">Check-In Time</label>
+                                <input type="datetime-local" value={editCheckIn} onChange={e => setEditCheckIn(e.target.value)}
+                                    className="w-full px-3 py-2 bg-white border border-purple-200 rounded-lg text-sm focus:outline-none focus:border-purple-500 text-gray-800" />
+                            </div>
+                            <div>
+                                <label className="text-xs text-gray-500 mb-1 block font-medium">Check-Out Time</label>
+                                <input type="datetime-local" value={editCheckOut} onChange={e => setEditCheckOut(e.target.value)}
+                                    className="w-full px-3 py-2 bg-white border border-purple-200 rounded-lg text-sm focus:outline-none focus:border-purple-500 text-gray-800" />
+                            </div>
+                        </div>
+                        <div className="flex gap-3 mt-4">
+                            <button onClick={saveEdit} disabled={editLoading}
+                                className="flex-1 px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-xl text-sm font-medium disabled:opacity-60 transition-colors">
+                                {editLoading ? "Saving…" : "Save"}
+                            </button>
+                            <button onClick={() => setEditRec(null)}
+                                className="flex-1 px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl text-sm transition-colors">
+                                Cancel
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
 
             <div className="bg-white border border-purple-100 rounded-2xl overflow-hidden shadow-sm">
                 <table className="w-full text-sm">
@@ -188,8 +262,12 @@ export default function AttendancePage() {
                                                 </button>
                                             )}
                                             {rec?.checkOutTime && <span className="text-xs text-green-600 font-bold bg-green-50 px-2 py-1 rounded-lg border border-green-100">✓ Completed</span>}
+                                            {rec && canEdit && (
+                                                <button onClick={() => openEdit(rec)} className="p-1.5 hover:bg-purple-50 rounded-lg transition-colors" title="Edit times">
+                                                    <Pencil className="w-3.5 h-3.5 text-gray-400" />
+                                                </button>
+                                            )}
                                         </div>
-
                                     </td>
                                 </tr>
                             );
