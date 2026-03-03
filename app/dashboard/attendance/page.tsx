@@ -99,8 +99,12 @@ export default function AttendancePage() {
 
     const openEdit = (rec: any) => {
         setEditRec(rec);
-        setEditCheckIn(rec.checkInTime ? format(new Date(rec.checkInTime), "yyyy-MM-dd HH:mm") : "");
-        setEditCheckOut(rec.checkOutTime ? format(new Date(rec.checkOutTime), "yyyy-MM-dd HH:mm") : "");
+        try {
+            setEditCheckIn(rec.checkInTime ? format(new Date(rec.checkInTime), "yyyy-MM-dd'T'HH:mm") : "");
+        } catch { setEditCheckIn(""); }
+        try {
+            setEditCheckOut(rec.checkOutTime ? format(new Date(rec.checkOutTime), "yyyy-MM-dd'T'HH:mm") : "");
+        } catch { setEditCheckOut(""); }
         setEditStatus(rec.status);
     };
 
