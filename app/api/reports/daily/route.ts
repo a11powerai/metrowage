@@ -1,17 +1,22 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { startOfDay, endOfDay } from "date-fns";
+import { getSessionContext } from "@/lib/session-utils";
 
 export async function GET(req: Request) {
     const { searchParams } = new URL(req.url, "http://n");
     const dateStr = searchParams.get("date");
     if (!dateStr) return NextResponse.json({ workers: [], factoryTotal: 0 });
 
+    const ctx = await getSessionContext();
+    if (!ctx) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
     const date = new Date(dateStr);
     const day = await prisma.productionDay.findFirst({
         where: { date: { gte: startOfDay(date), lte: endOfDay(date) } },
         include: {
             lines: {
+                where: { worker: ctx.getLocationFilter() },
                 include: { worker: true, product: true },
             },
         },

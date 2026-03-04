@@ -1,9 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-
-function diffHours(a: Date, b: Date) {
-    return Math.abs((b.getTime() - a.getTime()) / 3600000);
-}
+import { calculateHoursWorked, calculateOvertimeHours } from "@/lib/payroll-utils";
 
 export async function PATCH(req: Request, { params }: { params: Promise<{ id: string }> }) {
     const { id } = await params;
@@ -19,8 +16,11 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
         : existing.checkOutTime;
 
     let hoursWorked = existing.hoursWorked ?? 0;
+    let overtimeHours = 0; // attendance DB doesn't store OT yet, but we return it to the frontend
+
     if (newCheckIn && newCheckOut) {
-        hoursWorked = parseFloat(diffHours(newCheckIn, newCheckOut).toFixed(2));
+        hoursWorked = calculateHoursWorked(newCheckIn, newCheckOut);
+        overtimeHours = calculateOvertimeHours(hoursWorked);
     }
 
     const record = await prisma.attendance.update({
@@ -32,5 +32,5 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
             status: status ?? existing.status,
         },
     });
-    return NextResponse.json(record);
+    return NextResponse.json({ ...record, overtimeHours });
 }

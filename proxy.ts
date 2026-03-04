@@ -1,11 +1,19 @@
 import { getToken } from "next-auth/jwt";
 import { NextRequest, NextResponse } from "next/server";
 
-const ROLE_RESTRICTED: Record<string, string[]> = {
-    "/dashboard/admin": ["SuperAdmin"],
-    "/dashboard/workers": ["SuperAdmin", "Admin"],
-    "/dashboard/products": ["SuperAdmin", "Admin"],
-    "/dashboard/reports": ["SuperAdmin", "Admin"],
+// Route prefix → required permission key
+const ROUTE_PERMISSIONS: Record<string, string> = {
+    "/dashboard/admin/roles": "admin.roles",
+    "/dashboard/admin": "admin.users",
+    "/dashboard/workers": "workers.view",
+    "/dashboard/products": "products.view",
+    "/dashboard/production": "production.view",
+    "/dashboard/attendance": "attendance.view",
+    "/dashboard/leave": "leave.view",
+    "/dashboard/payroll": "payroll.view",
+    "/dashboard/reports": "reports.view",
+    "/dashboard/calendar": "calendar.view",
+    "/dashboard/locations": "locations.manage",
 };
 
 export default async function proxy(req: NextRequest) {
@@ -25,16 +33,20 @@ export default async function proxy(req: NextRequest) {
     if (!token) {
         const url = req.nextUrl.clone();
         url.pathname = "/login";
-        // Protect against loop and ensure redirect is valid
         if (pathname !== "/login") {
             return NextResponse.redirect(url);
         }
         return NextResponse.next();
     }
 
-    const role = token.role as string;
-    for (const [route, roles] of Object.entries(ROLE_RESTRICTED)) {
-        if (pathname.startsWith(route) && !roles.includes(role)) {
+    const permissions = (token.permissions as string[]) ?? [];
+
+    // Check route permissions — most specific route first (sorted by length desc)
+    const sortedRoutes = Object.entries(ROUTE_PERMISSIONS)
+        .sort((a, b) => b[0].length - a[0].length);
+
+    for (const [route, requiredPerm] of sortedRoutes) {
+        if (pathname.startsWith(route) && !permissions.includes(requiredPerm)) {
             const url = req.nextUrl.clone();
             url.pathname = "/dashboard";
             return NextResponse.redirect(url);

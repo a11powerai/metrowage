@@ -1,16 +1,23 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { startOfYear, endOfYear, getMonth } from "date-fns";
+import { getSessionContext } from "@/lib/session-utils";
 
 export async function GET(req: Request) {
     const { searchParams } = new URL(req.url, "http://n");
     const year = Number(searchParams.get("year") ?? new Date().getFullYear());
 
+    const ctx = await getSessionContext();
+    if (!ctx) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
     const start = startOfYear(new Date(year, 0, 1));
     const end = endOfYear(new Date(year, 0, 1));
 
     const lines = await prisma.productionLine.findMany({
-        where: { day: { date: { gte: start, lte: end } } },
+        where: {
+            day: { date: { gte: start, lte: end } },
+            worker: ctx.getLocationFilter(),
+        },
         include: { worker: true, product: true, day: true },
     });
 

@@ -1,8 +1,16 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 
+import { getSessionContext } from "@/lib/session-utils";
+
 export async function GET() {
-    const profiles = await prisma.workerSalaryProfile.findMany({ include: { worker: true } });
+    const ctx = await getSessionContext();
+    if (!ctx) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+    const profiles = await prisma.workerSalaryProfile.findMany({
+        where: { worker: ctx.getLocationFilter() },
+        include: { worker: true }
+    });
     return NextResponse.json(profiles);
 }
 

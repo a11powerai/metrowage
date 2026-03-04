@@ -9,14 +9,47 @@ datasource db {
 
 // ─── Auth ────────────────────────────────────────────────────
 model User {
-  id        Int      @id @default(autoincrement())
-  email     String   @unique
-  name      String
-  password  String
-  role      String   @default("Supervisor")
-  active    Boolean  @default(true)
-  createdAt DateTime @default(now())
+  id         Int       @id @default(autoincrement())
+  email      String    @unique
+  name       String
+  password   String
+  role       String    @default("Supervisor")
+  roleId     Int?
+  locationId Int?
+  active     Boolean   @default(true)
+  createdAt  DateTime  @default(now())
+  location   Location? @relation(fields: [locationId], references: [id])
+  roleRef    Role?     @relation(fields: [roleId], references: [id])
 }
+
+// ─── Roles & Permissions ──────────────────────────────────────
+model Role {
+  id          Int              @id @default(autoincrement())
+  name        String           @unique
+  description String?
+  isSystem    Boolean          @default(false)
+  createdAt   DateTime         @default(now())
+  permissions RolePermission[]
+  users       User[]
+}
+
+model Permission {
+  id     Int              @id @default(autoincrement())
+  key    String           @unique
+  module String
+  label  String
+  roles  RolePermission[]
+}
+
+model RolePermission {
+  id           Int        @id @default(autoincrement())
+  roleId       Int
+  permissionId Int
+  role         Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission   Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+  @@unique([roleId, permissionId])
+}
+
 
 // ─── Locations ────────────────────────────────────────────────
 model Location {
@@ -28,6 +61,7 @@ model Location {
   radius    Float?   @default(200)  // metres
   createdAt DateTime @default(now())
   workers   Worker[]
+  users     User[]
 }
 
 // ─── Workers & Products ──────────────────────────────────────

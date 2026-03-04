@@ -1,18 +1,22 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { getSessionContext } from "@/lib/session-utils";
 
 export async function GET(req: Request) {
     const { searchParams } = new URL(req.url, "http://n");
     const workerId = searchParams.get("workerId");
     const status = searchParams.get("status");
 
-    const where: any = {};
+    const ctx = await getSessionContext();
+    if (!ctx) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+    const where: any = { worker: ctx.getLocationFilter() };
     if (workerId) where.workerId = Number(workerId);
     if (status) where.status = status;
 
     const leaves = await prisma.leave.findMany({
         where,
-        include: { worker: { select: { id: true, workerId: true, name: true } } },
+        include: { worker: { select: { id: true, workerId: true, name: true, locationId: true } } },
         orderBy: { createdAt: "desc" },
     });
     return NextResponse.json(leaves);

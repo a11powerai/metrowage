@@ -2,18 +2,23 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { startOfDay } from "date-fns";
 
+import { getSessionContext } from "@/lib/session-utils";
+
 export async function GET(req: Request) {
     const { searchParams } = new URL(req.url, "http://n");
     const date = searchParams.get("date");
     const workerId = searchParams.get("workerId");
 
-    const where: any = {};
+    const ctx = await getSessionContext();
+    if (!ctx) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+    const where: any = { ...ctx.getLocationFilter() };
     if (date) where.date = startOfDay(new Date(date));
     if (workerId) where.workerId = Number(workerId);
 
     const records = await prisma.attendance.findMany({
         where,
-        include: { worker: { select: { id: true, workerId: true, name: true, designation: true } } },
+        include: { worker: { select: { id: true, workerId: true, name: true, designation: true, locationId: true } } },
         orderBy: [{ date: "desc" }, { workerId: "asc" }],
     });
     return NextResponse.json(records);

@@ -1,8 +1,19 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { getSessionContext } from "@/lib/session-utils";
 
 export async function GET() {
-    const items = await prisma.deduction.findMany({ where: { applied: false }, orderBy: { createdAt: "desc" } });
+    const ctx = await getSessionContext();
+    if (!ctx) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+    const workerIds = await ctx.getWorkerIds();
+    const where: any = { applied: false };
+    if (workerIds) where.workerId = { in: workerIds };
+
+    const items = await prisma.deduction.findMany({
+        where,
+        orderBy: { createdAt: "desc" },
+    });
     return NextResponse.json(items);
 }
 export async function POST(req: Request) {

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { startOfDay, endOfDay } from "date-fns";
+import { getSessionContext } from "@/lib/session-utils";
 
 export async function GET(req: Request) {
     const { searchParams } = new URL(req.url, "http://n");
@@ -8,6 +9,9 @@ export async function GET(req: Request) {
     const to = searchParams.get("to");
 
     if (!from || !to) return NextResponse.json({ error: "from/to required" }, { status: 400 });
+
+    const ctx = await getSessionContext();
+    if (!ctx) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
     const start = startOfDay(new Date(from));
     const end = endOfDay(new Date(to));
@@ -17,6 +21,7 @@ export async function GET(req: Request) {
             day: {
                 date: { gte: start, lte: end },
             },
+            worker: ctx.getLocationFilter(),
         },
         include: {
             worker: { select: { id: true, workerId: true, name: true, designation: true } },

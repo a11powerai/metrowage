@@ -20,6 +20,15 @@ export const authOptions = {
 
                 const user = await prisma.user.findUnique({
                     where: { email: credentials.email as string },
+                    include: {
+                        roleRef: {
+                            include: {
+                                permissions: {
+                                    include: { permission: true },
+                                },
+                            },
+                        },
+                    },
                 });
 
                 if (!user || !user.active) return null;
@@ -31,11 +40,19 @@ export const authOptions = {
 
                 if (!passwordMatch) return null;
 
+                // Extract permission keys from role
+                const permissions = user.roleRef?.permissions.map(
+                    (rp) => rp.permission.key
+                ) ?? [];
+
                 return {
                     id: String(user.id),
                     email: user.email,
                     name: user.name,
-                    role: user.role,
+                    role: user.roleRef?.name ?? user.role,
+                    roleId: user.roleId,
+                    locationId: user.locationId,
+                    permissions,
                 };
             },
         }),
@@ -44,14 +61,20 @@ export const authOptions = {
         async jwt({ token, user }: any) {
             if (user) {
                 token.role = user.role;
+                token.roleId = user.roleId;
                 token.id = user.id;
+                token.locationId = user.locationId;
+                token.permissions = user.permissions;
             }
             return token;
         },
         async session({ session, token }: any) {
             if (session.user) {
                 session.user.role = token.role;
+                session.user.roleId = token.roleId;
                 session.user.id = token.id;
+                session.user.locationId = token.locationId;
+                session.user.permissions = token.permissions;
             }
             return session;
         },

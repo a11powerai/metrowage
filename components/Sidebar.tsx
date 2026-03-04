@@ -23,6 +23,7 @@ import {
     MapPin,
     Clock,
     FileCheck,
+    KeyRound,
 } from "lucide-react";
 import { useState } from "react";
 
@@ -31,49 +32,49 @@ const navItems = [
         label: "Dashboard",
         href: "/dashboard",
         icon: LayoutDashboard,
-        roles: ["SuperAdmin", "Admin", "Supervisor"],
+        permission: "dashboard.view",
     },
     {
         label: "Workers",
         href: "/dashboard/workers",
         icon: Users,
-        roles: ["SuperAdmin", "Admin"],
+        permission: "workers.view",
     },
     {
         label: "Products",
         href: "/dashboard/products",
         icon: Package,
-        roles: ["SuperAdmin", "Admin"],
+        permission: "products.view",
     },
     {
         label: "Locations",
         href: "/dashboard/locations",
         icon: MapPin,
-        roles: ["SuperAdmin", "Admin"],
+        permission: "locations.manage",
     },
     {
         label: "Production",
         href: "/dashboard/production",
         icon: ClipboardList,
-        roles: ["SuperAdmin", "Admin", "Supervisor"],
+        permission: "production.view",
     },
     {
         label: "Attendance",
         href: "/dashboard/attendance",
         icon: Clock,
-        roles: ["SuperAdmin", "Admin", "Supervisor"],
+        permission: "attendance.view",
     },
     {
         label: "Leave",
         href: "/dashboard/leave",
         icon: FileCheck,
-        roles: ["SuperAdmin", "Admin", "Supervisor"],
+        permission: "leave.view",
     },
     {
         label: "Payroll",
         href: "/dashboard/payroll",
         icon: Wallet,
-        roles: ["SuperAdmin", "Admin"],
+        permission: "payroll.view",
         children: [
             { label: "Salary Profiles", href: "/dashboard/payroll/profiles", icon: Users },
             { label: "Allowances", href: "/dashboard/payroll/allowances", icon: Receipt },
@@ -87,7 +88,7 @@ const navItems = [
         label: "Reports",
         href: "/dashboard/reports",
         icon: BarChart3,
-        roles: ["SuperAdmin", "Admin"],
+        permission: "reports.view",
         children: [
             { label: "Attendance", href: "/dashboard/reports/attendance", icon: Clock },
             { label: "Daily", href: "/dashboard/reports/daily", icon: Calendar },
@@ -100,24 +101,32 @@ const navItems = [
         label: "Calendar",
         href: "/dashboard/calendar",
         icon: Calendar,
-        roles: ["SuperAdmin", "Admin", "Supervisor"],
+        permission: "calendar.view",
     },
     {
         label: "User Management",
         href: "/dashboard/admin/users",
         icon: ShieldCheck,
-        roles: ["SuperAdmin"],
+        permission: "admin.users",
+    },
+    {
+        label: "Roles & Permissions",
+        href: "/dashboard/admin/roles",
+        icon: KeyRound,
+        permission: "admin.roles",
     },
 ];
 
 export default function Sidebar() {
     const pathname = usePathname();
     const { data: session } = useSession();
-    const role = (session?.user as any)?.role as string;
+    const user = session?.user as any;
+    const role = user?.role as string;
+    const permissions: string[] = user?.permissions ?? [];
     const [open, setOpen] = useState(false);
     const [expandedMenus, setExpandedMenus] = useState<string[]>([]);
 
-    const filtered = navItems.filter((i) => i.roles.includes(role));
+    const filtered = navItems.filter((i) => permissions.includes(i.permission));
 
     const toggleMenu = (href: string) => {
         setExpandedMenus((prev) =>

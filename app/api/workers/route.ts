@@ -1,8 +1,14 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 
+import { getSessionContext } from "@/lib/session-utils";
+
 export async function GET() {
+    const ctx = await getSessionContext();
+    if (!ctx) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
     const workers = await prisma.worker.findMany({
+        where: ctx.getLocationFilter(),
         orderBy: { name: "asc" },
         include: { location: true },
     });
@@ -21,7 +27,17 @@ export async function POST(req: Request) {
         }
         const workerId = `MW-${String(nextNum).padStart(3, "0")}`;
 
-        const { name, phone, nic, address, designation, allowGeoCheckin, locationId, status } = body;
+        const ctx = await getSessionContext();
+        if (!ctx) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+        const { name, phone, nic, address, designation, allowGeoCheckin, status } = body;
+        let { locationId } = body;
+
+        // If not Admin, enforce the user's location
+        if (!ctx.isAdmin) {
+            locationId = ctx.locationId;
+        }
+
         const worker = await prisma.worker.create({
             data: {
                 workerId,

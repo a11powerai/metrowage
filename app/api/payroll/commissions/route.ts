@@ -1,11 +1,21 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { getSessionContext } from "@/lib/session-utils";
 
 export async function GET(req: Request) {
     const { searchParams } = new URL(req.url, "http://n");
     const workerId = searchParams.get("workerId");
+
+    const ctx = await getSessionContext();
+    if (!ctx) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+    const workerIds = await ctx.getWorkerIds();
+    const where: any = {};
+    if (workerIds) where.workerId = { in: workerIds };
+    if (workerId) where.workerId = Number(workerId);
+
     const items = await prisma.commission.findMany({
-        where: workerId ? { workerId: Number(workerId) } : {},
+        where,
         orderBy: { createdAt: "desc" },
     });
     return NextResponse.json(items);

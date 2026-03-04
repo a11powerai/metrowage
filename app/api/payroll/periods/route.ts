@@ -2,7 +2,12 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { startOfDay, endOfDay } from "date-fns";
 
+import { getSessionContext } from "@/lib/session-utils";
+
 export async function GET() {
+    const ctx = await getSessionContext();
+    if (!ctx) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
     const periods = await prisma.payrollPeriod.findMany({
         orderBy: { periodStart: "desc" },
         include: { _count: { select: { records: true } } },
@@ -12,18 +17,35 @@ export async function GET() {
 
 export async function POST(req: Request) {
     const body = await req.json();
-    const { name, periodStart, periodEnd } = body;
+    const ctx = await getSessionContext();
+    if (!ctx) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+    const { name, periodStart, periodEnd, workerIds } = body;
     const start = new Date(periodStart);
     const end = new Date(periodEnd);
 
-    // Create the payroll period
-    const period = await prisma.payrollPeriod.create({
-        data: { name, periodStart: start, periodEnd: end },
+    // Create or find existing period
+    let period = await prisma.payrollPeriod.findFirst({
+        where: { name, periodStart: start, periodEnd: end }
     });
 
-    // Get all active workers
+    if (!period) {
+        period = await prisma.payrollPeriod.create({
+            data: { name, periodStart: start, periodEnd: end },
+        });
+    }
+
+    // Get active workers for the location, optionally filtered by workerIds
+    const workerFilter: any = {
+        status: "Active",
+        ...ctx.getLocationFilter()
+    };
+    if (workerIds && Array.isArray(workerIds)) {
+        workerFilter.id = { in: workerIds.map(Number) };
+    }
+
     const workers = await prisma.worker.findMany({
-        where: { status: "Active" },
+        where: workerFilter,
         include: { salaryProfile: true },
     });
 
@@ -85,17 +107,32 @@ export async function POST(req: Request) {
         // presentDays for payroll record
         const presentDaysCount = presentDays;
 
-        // --- Basic salary & OT ---
-        const basicSalary = Math.round(profile?.basicSalary ?? 0);
+        // --- Basic salary based on time & OT ---
+        // Formula: (Basic Salary / Standard Hours) * Hours Worked
+        // Assuming standard month is 26 days * 8 hours = 208 hours
+        const standardHoursPerMonth = 208;
+        const basicSalaryAmount = profile?.basicSalary ?? 0;
+
+        // Use actually worked hours for basic salary if specified
+        // Otherwise fallback to proportional by present days
+        const totalHoursInPeriod = await prisma.attendance.aggregate({
+            where: { workerId: worker.id, date: { gte: start, lte: end } },
+            _sum: { hoursWorked: true }
+        });
+        const hoursWorkedSum = totalHoursInPeriod._sum.hoursWorked ?? (presentDaysCount * 8);
+
+        const basicSalary = Math.round((basicSalaryAmount / standardHoursPerMonth) * hoursWorkedSum);
+
         const overtimeHours = body.overtimeHours?.[worker.id] ?? 0;
         const overtimePay = Math.round((profile?.overtimeRate ?? 0) * overtimeHours);
 
         const grossPay = basicSalary + overtimePay + allowancesTotal + commissionsTotal + assemblyEarnings;
         const netPay = Math.max(0, grossPay - deductionsTotal);
 
-        // Create payroll record with breakdown lines
-        const record = await prisma.payrollRecord.create({
-            data: {
+        // Upsert payroll record
+        await prisma.payrollRecord.upsert({
+            where: { periodId_workerId: { periodId: period.id, workerId: worker.id } },
+            create: {
                 periodId: period.id,
                 workerId: worker.id,
                 basicSalary,
@@ -127,6 +164,18 @@ export async function POST(req: Request) {
                     create: commissions.map(c => ({ series: c.series, amount: Math.round(c.amount) })),
                 },
             },
+            update: {
+                basicSalary,
+                overtimeHours,
+                overtimePay,
+                allowancesTotal,
+                commissionsTotal,
+                assemblyEarnings,
+                deductionsTotal,
+                grossPay,
+                netPay,
+                presentDays: presentDaysCount,
+            }
         });
 
         // Mark deductions as applied
