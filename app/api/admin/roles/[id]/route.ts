@@ -54,11 +54,14 @@ export async function DELETE(_: Request, { params }: { params: Promise<{ id: str
         return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
+    const isSuperAdmin = (ctx as any).role === "SuperAdmin";
+
     const { id } = await params;
     const role = await prisma.role.findUnique({ where: { id: Number(id) } });
     if (!role) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
-    if (role.isSystem) {
+    // Only SuperAdmin can delete system roles
+    if (role.isSystem && !isSuperAdmin) {
         return NextResponse.json({ error: "Cannot delete a system role" }, { status: 403 });
     }
 

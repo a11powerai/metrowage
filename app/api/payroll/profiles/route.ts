@@ -23,6 +23,8 @@ export async function POST(req: Request) {
             salaryFrequency: body.salaryFrequency ?? "Monthly",
             overtimeRate: body.overtimeRate,
             workerType: body.workerType,
+            dutyStart: body.dutyStart ?? "08:00",
+            dutyEnd: body.dutyEnd ?? "17:00",
         },
         create: {
             workerId: Number(body.workerId),
@@ -30,6 +32,8 @@ export async function POST(req: Request) {
             salaryFrequency: body.salaryFrequency ?? "Monthly",
             overtimeRate: body.overtimeRate,
             workerType: body.workerType,
+            dutyStart: body.dutyStart ?? "08:00",
+            dutyEnd: body.dutyEnd ?? "17:00",
         },
     });
     return NextResponse.json(profile, { status: 201 });

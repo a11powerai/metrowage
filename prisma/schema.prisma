@@ -122,6 +122,7 @@ model ProductionLine {
   quantity    Int
   appliedRate Float
   lineTotal   Int
+  noPay       Boolean       @default(false)
   createdAt   DateTime      @default(now())
   day         ProductionDay @relation(fields: [dayId], references: [id], onDelete: Cascade)
   worker      Worker        @relation(fields: [workerId], references: [id])
@@ -181,6 +182,8 @@ model WorkerSalaryProfile {
   salaryFrequency String  @default("Monthly")  // Monthly | Daily
   overtimeRate    Float   @default(0)   // per hour
   workerType      String  @default("Both")  // Salary | PieceRate | Both
+  dutyStart       String  @default("08:00")  // HH:mm
+  dutyEnd         String  @default("17:00")  // HH:mm
   worker          Worker  @relation(fields: [workerId], references: [id], onDelete: Cascade)
 }
 

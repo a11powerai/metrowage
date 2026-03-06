@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import { format } from "date-fns";
-import { CheckCircle, XCircle, AlertCircle, Clock, Users, Calendar } from "lucide-react";
+import { CheckCircle, XCircle, AlertCircle, Clock, Users, Calendar, Download } from "lucide-react";
 
 const statusColors: Record<string, string> = {
     Present: "bg-green-100 text-green-700",
@@ -20,6 +20,26 @@ export default function AttendanceReportPage() {
         const res = await fetch(`/api/reports/attendance?date=${date}`);
         setData(await res.json());
         setLoading(false);
+    };
+
+    const exportExcel = async () => {
+        if (!data) return;
+        const XLSX = await import("xlsx");
+        const rows = data.workers?.map((w: any) => {
+            const rec = data.records?.find((r: any) => r.workerId === w.id);
+            return {
+                "Worker ID": w.workerId,
+                Worker: w.name,
+                Status: rec?.status ?? "Not Marked",
+                "Check-In": rec?.checkInTime ? format(new Date(rec.checkInTime), "HH:mm") : "",
+                "Check-Out": rec?.checkOutTime ? format(new Date(rec.checkOutTime), "HH:mm") : "",
+                "Hours Worked": rec?.hoursWorked ?? "",
+            };
+        }) ?? [];
+        const ws = XLSX.utils.json_to_sheet(rows);
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, "Attendance");
+        XLSX.writeFile(wb, `attendance-${date}.xlsx`);
     };
 
     useEffect(() => { load(); }, [date]);
@@ -41,6 +61,11 @@ export default function AttendanceReportPage() {
                     <p className="text-gray-500 text-sm mt-0.5">Daily present / absent summary</p>
                 </div>
                 <div className="flex items-center gap-2">
+                    {data && (
+                        <button onClick={exportExcel} className="flex items-center gap-1.5 px-3 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-medium transition-colors shadow-sm">
+                            <Download className="w-3.5 h-3.5" /> Excel
+                        </button>
+                    )}
                     <Calendar className="w-4 h-4 text-purple-400" />
                     <input
                         type="date"

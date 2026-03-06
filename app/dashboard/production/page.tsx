@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Plus, Lock, CheckCircle, Unlock, X } from "lucide-react";
+import { Plus, Lock, CheckCircle, Unlock, X, Download } from "lucide-react";
 import { formatCurrency, formatDate } from "@/lib/utils";
 
 const schema = z.object({
@@ -25,6 +25,7 @@ export default function ProductionPage() {
     const [dayId, setDayId] = useState<number | null>(null);
     const [preview, setPreview] = useState<{ rate: number; total: number } | null>(null);
     const [showForm, setShowForm] = useState(false);
+    const [noPay, setNoPay] = useState(false);
 
     const [loading, setLoading] = useState(false);
     const [msg, setMsg] = useState<{ type: "error" | "success"; text: string } | null>(null);
@@ -67,12 +68,15 @@ export default function ProductionPage() {
     }, [watchProduct, watchQty]);
 
     const onSubmit = async (data: ProductionFormData) => {
-
+        if (!noPay && !preview) {
+            setMsg({ type: "error", text: "No matching slab found. Please set up slabs or tick 'Salary Only'." });
+            return;
+        }
         setLoading(true); setMsg(null);
         const res = await fetch("/api/production", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(data),
+            body: JSON.stringify({ ...data, noPay }),
         });
         const json = await res.json();
         if (!res.ok) {
@@ -80,6 +84,7 @@ export default function ProductionPage() {
         } else {
             setMsg({ type: "success", text: "Entry saved successfully!" });
             reset({ date: data.date });
+            setNoPay(false);
             setShowForm(false);
             loadLines(data.date);
         }
@@ -102,6 +107,23 @@ export default function ProductionPage() {
         if (!confirm("Remove this entry?")) return;
         await fetch(`/api/production/${id}`, { method: "DELETE" });
         loadLines(watchDate);
+    };
+
+    const exportExcel = async () => {
+        const XLSX = await import("xlsx");
+        const rows = lines.map((l: any) => ({
+            Worker: l.worker.name,
+            "Worker ID": l.worker.workerId,
+            Product: l.product.name,
+            Quantity: l.quantity,
+            "Rate (Rs.)": l.noPay ? 0 : l.appliedRate,
+            "Line Total (Rs.)": l.noPay ? 0 : l.lineTotal,
+            "Pay Mode": l.noPay ? "Salary Only" : "Piece Rate",
+        }));
+        const ws = XLSX.utils.json_to_sheet(rows);
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, "Production");
+        XLSX.writeFile(wb, `production-${watchDate}.xlsx`);
     };
 
     const workerTotals = lines.reduce((acc: Record<string, any>, l: any) => {
@@ -130,8 +152,13 @@ export default function ProductionPage() {
                             <Unlock className="w-4 h-4" /> Unlock Day
                         </button>
                     )}
+                    {lines.length > 0 && (
+                        <button onClick={exportExcel} className="flex items-center gap-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-sm font-medium transition-colors shadow-sm">
+                            <Download className="w-4 h-4" /> Excel
+                        </button>
+                    )}
                     {dayStatus !== "Finalized" && (
-                        <button onClick={() => { setShowForm(true); setMsg(null); }} className="flex items-center gap-2 px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-xl text-sm font-medium transition-colors shadow-sm">
+                        <button onClick={() => { setShowForm(true); setMsg(null); setNoPay(false); }} className="flex items-center gap-2 px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-xl text-sm font-medium transition-colors shadow-sm">
                             <Plus className="w-4 h-4" /> Add Entry
                         </button>
                     )}
@@ -188,13 +215,33 @@ export default function ProductionPage() {
                             {errors.quantity && <p className="text-red-500 text-xs mt-1">{errors.quantity.message}</p>}
                         </div>
 
-                        {preview && (
+                        <div className="lg:col-span-4">
+                            <label className="flex items-center gap-3 cursor-pointer select-none p-4 rounded-xl border-2 transition-all"
+                                style={{ borderColor: noPay ? "#7c3aed" : "#ede9fe", background: noPay ? "#faf5ff" : "white" }}>
+                                <div
+                                    onClick={() => setNoPay(v => !v)}
+                                    className={`w-5 h-5 rounded-md border-2 flex items-center justify-center transition-all cursor-pointer ${noPay ? "bg-purple-600 border-purple-600" : "border-gray-300"}`}>
+                                    {noPay && <X className="w-3 h-3 text-white" />}
+                                </div>
+                                <div>
+                                    <div className="text-sm font-semibold text-gray-800">Salary Only (No Piece Pay)</div>
+                                    <div className="text-xs text-gray-500 mt-0.5">Quantity counts toward factory output but worker receives basic salary only — no piece-rate pay.</div>
+                                </div>
+                            </label>
+                        </div>
+
+                        {!noPay && preview && (
                             <div className="lg:col-span-4 flex gap-4 p-4 bg-blue-50 border border-blue-100 rounded-lg text-sm text-blue-800">
                                 <div>Matched Rate: <span className="text-blue-700 font-bold">Rs. {preview.rate}</span> / unit</div>
                                 <div>Estimated Total: <span className="text-emerald-700 font-bold">Rs. {preview.total}</span></div>
                             </div>
                         )}
-                        {!preview && watchProduct && watchQty > 0 && (
+                        {noPay && (
+                            <div className="lg:col-span-4 p-4 bg-purple-50 border border-purple-200 rounded-lg text-purple-700 text-sm">
+                                🟣 <strong>Salary Only mode:</strong> Worker will earn basic salary for today. Production quantity still recorded.
+                            </div>
+                        )}
+                        {!noPay && !preview && watchProduct && watchQty > 0 && (
                             <div className="lg:col-span-4 p-4 bg-amber-50 border border-amber-100 rounded-lg text-amber-700 text-sm">
                                 ⚠ No matching slab found for this quantity. Please set up slabs for this product.
                             </div>
@@ -207,7 +254,7 @@ export default function ProductionPage() {
                         )}
 
                         <div className="lg:col-span-4 flex gap-3">
-                            <button type="submit" disabled={loading || !preview} className="px-5 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-xl text-sm font-medium disabled:opacity-60 transition-colors shadow-sm">
+                            <button type="submit" disabled={loading} className="px-5 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-xl text-sm font-medium disabled:opacity-60 transition-colors shadow-sm">
                                 {loading ? "Saving…" : "Save Entry"}
                             </button>
                             <button type="button" onClick={() => setShowForm(false)} className="px-5 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl text-sm transition-colors">Cancel</button>
@@ -241,8 +288,10 @@ export default function ProductionPage() {
                                 <td className="px-4 py-3 font-medium text-gray-800">{l.worker.name}</td>
                                 <td className="px-4 py-3 text-gray-600">{l.product.name}</td>
                                 <td className="px-4 py-3 text-right text-gray-800">{l.quantity}</td>
-                                <td className="px-4 py-3 text-right text-purple-600 font-medium">Rs. {l.appliedRate}</td>
-                                <td className="px-4 py-3 text-right text-emerald-600 font-bold">{formatCurrency(l.lineTotal)}</td>
+                                <td className="px-4 py-3 text-right text-purple-600 font-medium">
+                                    {l.noPay ? <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-orange-100 text-orange-700">No Pay</span> : `Rs. ${l.appliedRate}`}
+                                </td>
+                                <td className="px-4 py-3 text-right text-emerald-600 font-bold">{l.noPay ? <span className="text-gray-400 text-xs italic">Basic only</span> : formatCurrency(l.lineTotal)}</td>
                                 {dayStatus !== "Finalized" && (
                                     <td className="px-4 py-3 text-right">
                                         <button onClick={() => deleteEntry(l.id)} className="p-1.5 hover:bg-red-50 rounded-lg transition-colors"><X className="w-3.5 h-3.5 text-red-400" /></button>

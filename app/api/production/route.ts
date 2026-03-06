@@ -31,7 +31,7 @@ export async function GET(req: Request) {
 
 export async function POST(req: Request) {
     const body = await req.json();
-    const { date: dateStr, workerId, productId, quantity } = body;
+    const { date: dateStr, workerId, productId, quantity, noPay } = body;
 
     const date = new Date(dateStr);
 
@@ -48,14 +48,19 @@ export async function POST(req: Request) {
         day = await prisma.productionDay.create({ data: { date: startOfDay(date) } });
     }
 
-    // Find slab
-    const slabs = await prisma.incentiveSlab.findMany({ where: { productId: Number(productId) } });
-    const slab = findMatchingSlab(slabs, Number(quantity));
-    if (!slab) {
-        return NextResponse.json({ error: "No matching incentive slab found for this product and quantity." }, { status: 422 });
-    }
+    let appliedRate = 0;
+    let lineTotal = 0;
 
-    const lineTotal = calculateLineTotal(Number(quantity), slab.ratePerUnit);
+    if (!noPay) {
+        // Find slab only when pay is applicable
+        const slabs = await prisma.incentiveSlab.findMany({ where: { productId: Number(productId) } });
+        const slab = findMatchingSlab(slabs, Number(quantity));
+        if (!slab) {
+            return NextResponse.json({ error: "No matching incentive slab found for this product and quantity." }, { status: 422 });
+        }
+        appliedRate = slab.ratePerUnit;
+        lineTotal = calculateLineTotal(Number(quantity), slab.ratePerUnit);
+    }
 
     // Check for duplicate
     const existing = await prisma.productionLine.findUnique({
@@ -72,8 +77,9 @@ export async function POST(req: Request) {
             workerId: Number(workerId),
             productId: Number(productId),
             quantity: Number(quantity),
-            appliedRate: slab.ratePerUnit,
+            appliedRate,
             lineTotal,
+            noPay: Boolean(noPay),
         },
         include: { worker: true, product: true },
     });

@@ -12,6 +12,8 @@ const schema = z.object({
     salaryFrequency: z.enum(["Monthly", "Daily"]),
     overtimeRate: z.coerce.number().min(0),
     workerType: z.enum(["Salary", "PieceRate", "Both"]),
+    dutyStart: z.string().default("08:00"),
+    dutyEnd: z.string().default("17:00"),
 });
 type ProfileFormData = z.infer<typeof schema>;
 
@@ -27,7 +29,7 @@ export default function SalaryProfilesPage() {
 
     const { register, handleSubmit, reset, setValue, formState: { errors } } = useForm<ProfileFormData>({
         resolver: zodResolver(schema) as any,
-        defaultValues: { workerType: "Both", salaryFrequency: "Monthly" },
+        defaultValues: { workerType: "Both", salaryFrequency: "Monthly", dutyStart: "08:00", dutyEnd: "17:00" },
     });
 
 
@@ -51,6 +53,8 @@ export default function SalaryProfilesPage() {
         setValue("salaryFrequency", p.salaryFrequency ?? "Monthly");
         setValue("overtimeRate", p.overtimeRate);
         setValue("workerType", p.workerType);
+        setValue("dutyStart", p.dutyStart ?? "08:00");
+        setValue("dutyEnd", p.dutyEnd ?? "17:00");
         setShowForm(true);
     };
 
@@ -112,7 +116,14 @@ export default function SalaryProfilesPage() {
                                 <option value="PieceRate">Assembly Only</option>
                             </select>
                         </div>
-                        <div></div>
+                        <div>
+                            <label className={labelCls}>Duty Start Time</label>
+                            <input type="time" {...register("dutyStart")} className={inputCls} />
+                        </div>
+                        <div>
+                            <label className={labelCls}>Duty End Time</label>
+                            <input type="time" {...register("dutyEnd")} className={inputCls} />
+                        </div>
                         <div className="lg:col-span-3 flex gap-3">
                             <button type="submit" disabled={loading} className="px-5 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-xl text-sm font-medium disabled:opacity-60 transition-colors shadow-sm">{loading ? "Saving…" : "Save Profile"}</button>
                             <button type="button" onClick={() => setShowForm(false)} className="px-5 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl text-sm transition-colors">Cancel</button>
@@ -130,6 +141,7 @@ export default function SalaryProfilesPage() {
                             <th className="text-right px-4 py-3 text-gray-500 font-medium text-xs uppercase tracking-wide">Basic Salary</th>
                             <th className="text-left px-4 py-3 text-gray-500 font-medium text-xs uppercase tracking-wide">Paid Per</th>
                             <th className="text-right px-4 py-3 text-gray-500 font-medium text-xs uppercase tracking-wide">OT Rate/Hr</th>
+                            <th className="text-left px-4 py-3 text-gray-500 font-medium text-xs uppercase tracking-wide">Duty Hours</th>
                             <th className="text-left px-4 py-3 text-gray-500 font-medium text-xs uppercase tracking-wide">Type</th>
                             <th className="text-right px-4 py-3 text-gray-500 font-medium text-xs uppercase tracking-wide">Actions</th>
                         </tr>
@@ -146,6 +158,7 @@ export default function SalaryProfilesPage() {
                                     </span>
                                 </td>
                                 <td className="px-4 py-3 text-right text-blue-600">Rs. {p.overtimeRate}/hr</td>
+                                <td className="px-4 py-3 text-xs text-gray-600 font-mono">{p.dutyStart ?? "08:00"} → {p.dutyEnd ?? "17:00"}</td>
                                 <td className="px-4 py-3"><span className={`px-2 py-0.5 rounded-full text-xs font-medium ${TYPE_COLORS[p.workerType]}`}>{p.workerType}</span></td>
                                 <td className="px-4 py-3 text-right">
                                     <button onClick={() => startEdit(p)} className="p-1.5 hover:bg-purple-50 rounded-lg transition-colors"><Pencil className="w-3.5 h-3.5 text-gray-400" /></button>

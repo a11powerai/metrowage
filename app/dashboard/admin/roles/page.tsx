@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import { KeyRound, Plus, X, Save, Shield, Trash2, Users } from "lucide-react";
+import { useSession } from "next-auth/react";
 
 const inputCls = "w-full px-3 py-2 bg-white border border-purple-200 rounded-lg text-sm focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-200 text-gray-800";
 const labelCls = "text-xs text-gray-500 mb-1 block font-medium";
@@ -19,6 +20,8 @@ interface PermGrouped {
 }
 
 export default function RolesPage() {
+    const { data: session } = useSession();
+    const isSuperAdmin = (session?.user as any)?.role === "SuperAdmin";
     const [roles, setRoles] = useState<RoleData[]>([]);
     const [grouped, setGrouped] = useState<PermGrouped>({});
     const [editing, setEditing] = useState<RoleData | null>(null);
@@ -233,7 +236,7 @@ export default function RolesPage() {
                                             onClick={() => { setEditing(r); setShowNew(false); setError(""); }}
                                             className="px-3 py-1.5 text-purple-600 hover:bg-purple-50 rounded-lg text-xs font-medium transition-colors"
                                         >Edit</button>
-                                        {!r.isSystem && (
+                                        {(!r.isSystem || isSuperAdmin) && (
                                             <button
                                                 onClick={() => deleteRole(r.id)}
                                                 className="p-1.5 hover:bg-red-50 rounded-lg transition-colors"

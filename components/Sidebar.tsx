@@ -24,6 +24,7 @@ import {
     Clock,
     FileCheck,
     KeyRound,
+    Cpu,
 } from "lucide-react";
 import { useState } from "react";
 
@@ -114,6 +115,12 @@ const navItems = [
         href: "/dashboard/admin/roles",
         icon: KeyRound,
         permission: "admin.roles",
+    },
+    {
+        label: "Machines",
+        href: "/dashboard/admin/machines",
+        icon: Cpu,
+        permission: "admin.users",
     },
 ];
 
