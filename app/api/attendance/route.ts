@@ -7,13 +7,27 @@ import { getSessionContext } from "@/lib/session-utils";
 export async function GET(req: Request) {
     const { searchParams } = new URL(req.url, "http://n");
     const date = searchParams.get("date");
+    const dateFrom = searchParams.get("dateFrom");
+    const dateTo = searchParams.get("dateTo");
     const workerId = searchParams.get("workerId");
 
     const ctx = await getSessionContext();
     if (!ctx) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-    const where: any = { ...ctx.getLocationFilter() };
+    // Build the worker sub-filter for location scoping.
+    // Attendance has no locationId — we scope through the worker relation.
+    const workerWhere: any = {};
+    if (!ctx.isAdmin && ctx.locationId) {
+        workerWhere.locationId = ctx.locationId;
+    }
+
+    const where: any = { worker: workerWhere };
     if (date) where.date = startOfDay(new Date(date));
+    if (dateFrom || dateTo) {
+        where.date = {};
+        if (dateFrom) where.date.gte = startOfDay(new Date(dateFrom));
+        if (dateTo) where.date.lte = startOfDay(new Date(dateTo));
+    }
     if (workerId) where.workerId = Number(workerId);
 
     const records = await prisma.attendance.findMany({
