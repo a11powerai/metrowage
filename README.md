@@ -68,6 +68,13 @@ Net Salary = (Basic + Overtime + Allowances + Commissions + Assembly Earnings) �
 | **Admin** | Workers, Products, Production, Payroll, Reports |
 | **Supervisor** | Production Entry only |
 
+### 🤖 AI Agent (Gemini 2.0 Flash)
+| Feature | Description |
+|---------|-------------|
+| **Floating Chat** | Omnipresent AI box available for users with the `ai.use` permission |
+| **Data Extraction** | Upload images or type questions to pull system data instantly |
+| **Safe Actions** | Generates strict JSON Actions (e.g. `CREATE_WORKER`) that can be executed securely |
+
 ---
 
 ## 🖥 Demo
@@ -101,6 +108,7 @@ Create a `.env` file in the project root:
 DATABASE_URL="file:./prisma/dev.db"
 NEXTAUTH_SECRET="your-secret-here-change-this"
 NEXTAUTH_URL="http://localhost:3000"
+GEMINI_API_KEY="AIzaSy..."
 ```
 
 ### Database Setup
