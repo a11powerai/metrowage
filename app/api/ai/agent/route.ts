@@ -4,12 +4,11 @@ import { authOptions } from "@/lib/auth";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import { prisma } from "@/lib/prisma";
 import { getGeminiApiKey } from "@/lib/gemini";
-import { getSessionContext } from "@/lib/session-utils";
 
 export async function POST(req: NextRequest) {
     const session = await getServerSession(authOptions);
     const userRole = (session?.user as any)?.role;
-    const userPermissions = (session?.user as any)?.permissions || [];
+    const userPermissions: string[] = (session?.user as any)?.permissions || [];
     const hasAccess = userRole === "SuperAdmin" || userPermissions.includes("ai.use");
 
     if (!session || !hasAccess) {
@@ -17,120 +16,116 @@ export async function POST(req: NextRequest) {
     }
 
     try {
-        const { prompt, image, context } = await req.json();
+        const { prompt, image, history } = await req.json();
 
         const apiKey = getGeminiApiKey();
         if (!apiKey) {
-            return NextResponse.json({ error: "Gemini API Key not configured" }, { status: 500 });
+            return NextResponse.json({ error: "Gemini API Key not configured. Set GEMINI_API_KEY in environment." }, { status: 500 });
         }
 
         const genAI = new GoogleGenerativeAI(apiKey);
         const model = genAI.getGenerativeModel({
             model: "gemini-2.0-flash",
-            generationConfig: { responseMimeType: "application/json" }
+            generationConfig: { responseMimeType: "application/json" },
         });
 
-        // Fetch essential database records for the context
-        const locationFilter = context?.location || session.user.location;
-        let whereClause = {};
+        // Fetch live data for context
+        const userName = (session.user as any)?.name || "sir";
+        const userLocationId = (session.user as any)?.locationId;
 
-        if (locationFilter && locationFilter !== "All") {
-            const loc = await prisma.location.findFirst({
-                where: { name: locationFilter }
-            });
-            if (loc) {
-                whereClause = { locationId: loc.id };
-            }
+        const workerFilter: any = { status: "Active" };
+        if (userLocationId && userRole !== "SuperAdmin") {
+            workerFilter.locationId = userLocationId;
         }
 
-        const workers = await prisma.worker.findMany({
-            where: { ...whereClause, status: "Active" },
-            include: { location: true }
-        });
+        const [workers, products, locations, recentAttendance, pendingLeaves] = await Promise.all([
+            prisma.worker.findMany({ where: workerFilter, include: { location: true }, take: 200 }),
+            prisma.product.findMany({ take: 50 }),
+            prisma.location.findMany(),
+            prisma.attendance.findMany({
+                where: { date: { gte: new Date(new Date().setHours(0, 0, 0, 0)) } },
+                include: { worker: { select: { name: true, workerId: true } } },
+                take: 200,
+            }),
+            prisma.leave.findMany({ where: { status: "Pending" }, include: { worker: { select: { name: true } } }, take: 20 }),
+        ]);
 
-        // Get basic products config
-        const activeProducts = await prisma.product.findMany({});
+        const todayPresent = recentAttendance.filter(a => a.status === "Present").length;
+        const todayAbsent = recentAttendance.filter(a => a.status === "Absent").length;
 
         const systemPrompt = `
-You are the Metrowage AI Assistant. 
-Your goal is to parse text, requests, and screenshots to help Admins query data and propose actionable updates to the database.
+You are J.A.R.V.I.S — the advanced AI assistant for MetroWage Factory Management System.
+You speak with calm confidence, wit, and precision — like Tony Stark's AI butler.
+Address the user as "sir" or "ma'am". Be proactive, concise, and slightly charming.
 
-### 1. KNOWN ENTITIES 
-Use these to understand the context of the user's queries or image uploads.
-- **Workers**: ${workers.map(w => `"${w.name}" (ID: ${w.id}, Employee ID: ${w.workerId}, Loc: ${w.location?.name})`).join(", ")}
-- **Products**: ${activeProducts.map(p => `"${p.model} ${p.name}" (ID: ${p.id}, Category: ${p.category})`).join(", ")}
+## YOUR CAPABILITIES
+- Answer questions about workers, products, attendance, production, payroll, and locations
+- Propose database actions (creating workers, products, logging attendance, etc.)
+- Analyze uploaded images (spreadsheets, attendance sheets, etc.) and extract data
+- Provide summaries and insights from the live factory data below
 
-### 2. HANDLING QUERIES
-**A) Informational Queries**:
-- If the user asks "How many workers do I have?", answer using the entities list.
-- If the user asks "What are the models inside [category]?", find it and answer.
+## LIVE SYSTEM DATA
+- **User**: ${userName} (Role: ${userRole})
+- **Locations**: ${locations.map(l => `${l.name} (ID: ${l.id})`).join(", ") || "None"}
+- **Active Workers (${workers.length})**: ${workers.slice(0, 30).map(w => `${w.name} [${w.workerId}] at ${w.location?.name || "Unassigned"}`).join(", ")}${workers.length > 30 ? ` ... and ${workers.length - 30} more` : ""}
+- **Products (${products.length})**: ${products.slice(0, 20).map(p => `${p.name} (${p.model}, ${p.category})`).join(", ")}
+- **Today's Attendance**: ${todayPresent} present, ${todayAbsent} absent, ${workers.length - todayPresent - todayAbsent} unmarked
+- **Pending Leave Requests**: ${pendingLeaves.length > 0 ? pendingLeaves.map(l => `${l.worker.name}: ${l.leaveType}`).join(", ") : "None"}
 
-**B) Action Queries (Requires executing a change)**:
-- If the user asks to "add a new worker", "create a location", "log attendance", or uploads a screenshot of a spreadsheet/list that implies new data entry:
-- Parse the intent/data and propose an array of actions.
+## ACTION TYPES YOU CAN PROPOSE
+- CREATE_WORKER: { name, workerId, locationName, designation, phone?, nic? }
+- CREATE_PRODUCT: { model, name, category }
+- LOG_ATTENDANCE: { workerId, date, status, checkInTime? }
 
-### 3. ACTION TYPES YOU CAN SUGGEST
-- \`CREATE_WORKER\`: { name, workerId, locationName, designation }
-- \`CREATE_PRODUCT\`: { model, name, category }
+## CONVERSATION HISTORY
+${(history || []).map((m: any) => `${m.role === "user" ? "User" : "JARVIS"}: ${m.content}`).join("\n")}
 
-### 4. OUTPUT FORMAT (JSON ONLY)
+## OUTPUT FORMAT (strict JSON)
 {
-  "message": "Friendly response text summarizing what was found and what is being proposed. Be proactive, confident, and professional.",
-  "actions": [
-    { "type": "CREATE_WORKER", "data": { "name": "John Doe", "workerId": "EMP-9002", "locationName": "Factory A", "designation": "Ironing" } },
-    { "type": "CREATE_PRODUCT", "data": { "model": "T-Shirt", "name": "Crew Neck", "category": "Apparel" } }
-  ]
+  "message": "Your response text. Be helpful, witty, and reference real data. Use markdown formatting for readability.",
+  "actions": []
 }
 
-**CRITICAL RULE**: Your JSON must be completely strict and valid. Do not use literal newlines inside strings.
-        `;
+If proposing actions, populate the actions array. If just answering, leave actions empty.
+Keep responses concise but informative. Never fabricate data — use only what's provided above.
+`;
 
         const parts: any[] = [{ text: systemPrompt }];
-        if (prompt) parts.push({ text: `User request: ${prompt}` });
+        if (prompt) parts.push({ text: `User: ${prompt}` });
 
         if (image) {
             const base64Data = image.split(",")[1];
-            parts.push({
-                inlineData: {
-                    data: base64Data,
-                    mimeType: "image/jpeg"
-                }
-            });
+            if (base64Data) {
+                parts.push({
+                    inlineData: { data: base64Data, mimeType: "image/jpeg" },
+                });
+            }
         }
 
         let result;
-        let attempts = 0;
-        while (attempts < 3) {
+        for (let attempt = 1; attempt <= 3; attempt++) {
             try {
                 result = await model.generateContent(parts);
                 break;
             } catch (error: any) {
-                attempts++;
-                console.warn(`Gemini Agent attempt ${attempts} failed:`, error.message);
-                if (attempts === 3) throw error;
-                await new Promise(resolve => setTimeout(resolve, 1000));
+                console.warn(`Gemini attempt ${attempt} failed:`, error.message);
+                if (attempt === 3) throw error;
+                await new Promise(r => setTimeout(r, 1000));
             }
         }
 
-        if (!result) throw new Error("Failed to get response from Gemini Agent");
+        if (!result) throw new Error("Failed to get response from AI");
 
         const responseText = result.response.text();
-
         const jsonMatch = responseText.match(/\{[\s\S]*\}/);
-        if (!jsonMatch) throw new Error("Could not parse AI response: " + responseText.substring(0, 100));
+        if (!jsonMatch) throw new Error("Could not parse AI response");
 
-        try {
-            const data = JSON.parse(jsonMatch[0]);
-            return NextResponse.json(data);
-        } catch (parseError: any) {
-            console.error("JSON Parse Error:", parseError.message);
-            throw new Error("AI response formatting error. Please try again.");
-        }
-
+        const data = JSON.parse(jsonMatch[0]);
+        return NextResponse.json(data);
     } catch (error: any) {
         console.error("AI Agent Error:", error);
         return NextResponse.json({
-            error: error.message || "An unexpected error occurred"
+            error: error.message || "An unexpected error occurred",
         }, { status: 500 });
     }
 }
