@@ -6,7 +6,7 @@ import { useSession } from "next-auth/react";
 import { toast } from "sonner";
 
 export default function MetrowageAgent() {
-    const { data: session } = useSession();
+    const { data: session, status } = useSession();
     const [isOpen, setIsOpen] = useState(false);
     const [messages, setMessages] = useState<any[]>([]);
     const [input, setInput] = useState("");
@@ -23,7 +23,8 @@ export default function MetrowageAgent() {
     // Only allow if SuperAdmin OR has ai.use permission
     const hasAccess = userRole === "SuperAdmin" || userPermissions.includes("ai.use");
 
-    if (!session || !hasAccess) {
+    // Fix hydration: Wait until NextAuth determines session status on the client
+    if (status !== "authenticated" || !hasAccess) {
         return null;
     }
 
