@@ -117,6 +117,12 @@ const navItems = [
         permission: "admin.roles",
     },
     {
+        label: "Shift Config",
+        href: "/dashboard/admin/shifts",
+        icon: Clock,
+        permission: "admin.users",
+    },
+    {
         label: "Machines",
         href: "/dashboard/admin/machines",
         icon: Cpu,

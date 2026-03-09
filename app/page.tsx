@@ -21,26 +21,26 @@ export default function LandingPage() {
       <section className="flex flex-col items-center text-center px-6 pt-28 pb-20">
         <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-blue-500/20 border border-blue-500/30 text-blue-300 text-xs font-medium mb-8">
           <span className="w-1.5 h-1.5 rounded-full bg-blue-400 animate-pulse" />
-          Version 1.0 — MVP Release
+          Version 2.0 — Roles, Permissions &amp; Multi-Location
         </div>
         <h1 className="text-5xl md:text-6xl font-bold tracking-tight max-w-3xl leading-tight">
           Smart Factory{" "}
           <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-cyan-400">
-            Production
+            Workforce
           </span>{" "}
-          &amp; Incentive Management
+          &amp; Payroll Management
         </h1>
         <p className="mt-6 text-lg text-slate-400 max-w-xl leading-relaxed">
-          Track daily production, calculate worker incentives automatically, and
-          generate beautiful reports — all in one platform built for factory
-          supervisors.
+          Track attendance, manage production, run payroll with auto overtime, and
+          control access with customizable roles — all in one platform built for
+          multi-location factory operations.
         </p>
         <div className="flex items-center gap-4 mt-10">
           <Link
             href="/login"
             className="px-7 py-3 rounded-xl bg-blue-600 hover:bg-blue-500 transition-all duration-200 font-semibold shadow-lg shadow-blue-700/40 hover:shadow-blue-600/50 hover:-translate-y-0.5"
           >
-            Get Started →
+            Get Started
           </Link>
           <a
             href="#features"
@@ -54,9 +54,9 @@ export default function LandingPage() {
       {/* Stats */}
       <section className="grid grid-cols-2 md:grid-cols-4 gap-4 max-w-4xl mx-auto px-6 pb-20">
         {[
-          { label: "Workers Tracked", value: "∞" },
-          { label: "Products Managed", value: "∞" },
-          { label: "Real-time Calculation", value: "✓" },
+          { label: "Multi-Location", value: "Yes" },
+          { label: "Auto OT Calc", value: "Yes" },
+          { label: "Custom Roles", value: "Yes" },
           { label: "Report Exports", value: "PDF + XLS" },
         ].map((stat) => (
           <div
@@ -76,33 +76,48 @@ export default function LandingPage() {
           {[
             {
               icon: "👷",
-              title: "Worker & Product Setup",
-              desc: "Manage workers, products, and incentive slabs with flexible quantity-based rate tiers.",
+              title: "Worker Management",
+              desc: "Manage workers across multiple locations with salary profiles, duty hours, and geo check-in support.",
+            },
+            {
+              icon: "🕐",
+              title: "Attendance & Time Tracking",
+              desc: "Daily check-in/out with biometric machine integration, auto hours calculation, and admin edit controls.",
             },
             {
               icon: "📋",
-              title: "Daily Production Entry",
-              desc: "Fast supervisor entry with automatic slab matching, duplicate prevention, and day locking.",
+              title: "Production Tracking",
+              desc: "Fast daily entry with automatic slab matching, no-pay flagging, duplicate prevention, and day locking.",
             },
             {
               icon: "💰",
-              title: "Auto Incentive Calc",
-              desc: "System finds the correct slab and applies it to the full quantity — no manual math.",
+              title: "Payroll & Auto OT",
+              desc: "Full payroll with basic salary, allowances, deductions, commissions, assembly earnings, and automatic overtime calculation.",
+            },
+            {
+              icon: "🔐",
+              title: "Roles & Permissions",
+              desc: "Customizable roles with granular permission control. Admins toggle exactly which features each role can access.",
+            },
+            {
+              icon: "📍",
+              title: "Location-Based Privacy",
+              desc: "Managers only see their own location's workers and salary data. No cross-location salary visibility.",
             },
             {
               icon: "📊",
-              title: "Rich Reports",
-              desc: "Daily, monthly, and yearly breakdowns with charts, worker totals, and factory-wide summaries.",
+              title: "Rich Reports & Exports",
+              desc: "Daily, weekly, monthly, and yearly reports with attendance summaries. One-click Excel and PDF exports.",
             },
             {
-              icon: "📤",
-              title: "PDF & Excel Export",
-              desc: "One-click exports for accounting, payroll, and record-keeping purposes.",
+              icon: "⚙️",
+              title: "Shift Configuration",
+              desc: "Configure standard shift hours per location. System auto-calculates overtime for hours exceeding the standard.",
             },
             {
-              icon: "🔒",
-              title: "Role-Based Access",
-              desc: "SuperAdmin, Admin, and Supervisor roles keep the right people in control.",
+              icon: "🤖",
+              title: "AI Assistant",
+              desc: "Built-in AI assistant to help with queries, generate insights, and streamline factory management tasks.",
             },
           ].map((f) => (
             <div
@@ -119,7 +134,7 @@ export default function LandingPage() {
 
       {/* Footer */}
       <footer className="border-t border-white/10 py-8 text-center text-slate-500 text-sm">
-        © {new Date().getFullYear()} MetroWage. Built for factory floor efficiency.
+        &copy; {new Date().getFullYear()} MetroWage. Built for factory floor efficiency.
       </footer>
     </main>
   );
