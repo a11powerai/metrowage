@@ -1,296 +1,382 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
-import { Sparkles, Upload, Image as ImageIcon, Send, X, Loader2, Check, Trash2, Minus } from "lucide-react";
+import { useState, useRef, useEffect, useCallback } from "react";
+import { Sparkles, Send, X, Loader2, Check, Trash2, Minus, Mic, MicOff, Volume2, VolumeX, Upload } from "lucide-react";
 import { useSession } from "next-auth/react";
 import { toast } from "sonner";
 
+interface Message {
+    role: "user" | "assistant";
+    content: string;
+    image?: string | null;
+}
+
+interface Action {
+    type: string;
+    data: Record<string, any>;
+}
+
 export default function MetrowageAgent() {
+    // ALL hooks at the top — no conditional returns before hooks
     const { data: session, status } = useSession();
     const [mounted, setMounted] = useState(false);
     const [isOpen, setIsOpen] = useState(false);
-    const [messages, setMessages] = useState<any[]>([]);
+    const [messages, setMessages] = useState<Message[]>([]);
     const [input, setInput] = useState("");
     const [image, setImage] = useState<string | null>(null);
     const [isProcessing, setIsProcessing] = useState(false);
-    const [suggestedActions, setSuggestedActions] = useState<any[]>([]);
+    const [suggestedActions, setSuggestedActions] = useState<Action[]>([]);
+    const [isListening, setIsListening] = useState(false);
+    const [isSpeaking, setIsSpeaking] = useState(false);
+    const [voiceEnabled, setVoiceEnabled] = useState(true);
+    const [pulseRing, setPulseRing] = useState(false);
     const scrollRef = useRef<HTMLDivElement>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
+    const recognitionRef = useRef<any>(null);
+    const synthRef = useRef<SpeechSynthesis | null>(null);
 
     useEffect(() => {
         setMounted(true);
+        if (typeof window !== "undefined") {
+            synthRef.current = window.speechSynthesis;
+        }
     }, []);
 
-    // Ensure hydration matches strictly between server and client
-    if (!mounted) {
-        return null;
-    }
-
-    // Dynamic Permission check
-    const userRole = (session?.user as any)?.role;
-    const userPermissions = (session?.user as any)?.permissions || [];
-
-    // Only allow if SuperAdmin OR has ai.use permission
-    const hasAccess = userRole === "SuperAdmin" || userPermissions.includes("ai.use");
-
-    // Fix hydration: Wait until NextAuth determines session status on the client
-    if (status !== "authenticated" || !hasAccess) {
-        return null;
-    }
-
-    // Scroll to bottom
-    // biome-ignore lint/correctness/useExhaustiveDependencies: scroll
     useEffect(() => {
         if (scrollRef.current) {
             scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
         }
     }, [messages, suggestedActions]);
 
-    // Global Paste Listener
     useEffect(() => {
         const handleGlobalPaste = (e: ClipboardEvent) => {
             if (!isOpen) return;
             const items = e.clipboardData?.items;
             if (!items) return;
-
             for (let i = 0; i < items.length; i++) {
                 if (items[i].type.indexOf("image") !== -1) {
                     const blob = items[i].getAsFile();
                     if (blob) {
                         const reader = new FileReader();
-                        reader.onload = (event) => setImage(event.target?.result as string);
+                        reader.onload = (ev) => setImage(ev.target?.result as string);
                         reader.readAsDataURL(blob);
-                        toast.info("Image pasted into Agent");
+                        toast.info("Image captured, sir.");
                     }
                 }
             }
         };
-
-        window.addEventListener('paste', handleGlobalPaste);
-        return () => window.removeEventListener('paste', handleGlobalPaste);
+        window.addEventListener("paste", handleGlobalPaste);
+        return () => window.removeEventListener("paste", handleGlobalPaste);
     }, [isOpen]);
 
-    const handlePaste = (e: React.ClipboardEvent) => {
-        const items = e.clipboardData.items;
-        for (let i = 0; i < items.length; i++) {
-            if (items[i].type.indexOf("image") !== -1) {
-                const blob = items[i].getAsFile();
-                if (blob) {
-                    const reader = new FileReader();
-                    reader.onload = (event) => setImage(event.target?.result as string);
-                    reader.readAsDataURL(blob);
-                }
-            }
+    const speak = useCallback((text: string) => {
+        if (!voiceEnabled || !synthRef.current) return;
+        synthRef.current.cancel();
+        const clean = text.replace(/[*_#`]/g, "").replace(/\n+/g, ". ");
+        const utterance = new SpeechSynthesisUtterance(clean);
+        utterance.rate = 1.05;
+        utterance.pitch = 0.95;
+        // Try to get a good English voice
+        const voices = synthRef.current.getVoices();
+        const preferred = voices.find(v => v.name.includes("Daniel") || v.name.includes("Google UK English Male") || v.name.includes("Alex"));
+        if (preferred) utterance.voice = preferred;
+        utterance.onstart = () => setIsSpeaking(true);
+        utterance.onend = () => setIsSpeaking(false);
+        synthRef.current.speak(utterance);
+    }, [voiceEnabled]);
+
+    const stopSpeaking = useCallback(() => {
+        synthRef.current?.cancel();
+        setIsSpeaking(false);
+    }, []);
+
+    const startListening = useCallback(() => {
+        const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+        if (!SpeechRecognition) {
+            toast.error("Voice input not supported in this browser");
+            return;
         }
-    };
+        const recognition = new SpeechRecognition();
+        recognition.continuous = false;
+        recognition.interimResults = true;
+        recognition.lang = "en-US";
+        recognition.onresult = (event: any) => {
+            const transcript = Array.from(event.results)
+                .map((r: any) => r[0].transcript)
+                .join("");
+            setInput(transcript);
+        };
+        recognition.onend = () => setIsListening(false);
+        recognition.onerror = () => setIsListening(false);
+        recognition.start();
+        recognitionRef.current = recognition;
+        setIsListening(true);
+        setPulseRing(true);
+        setTimeout(() => setPulseRing(false), 2000);
+    }, []);
+
+    const stopListening = useCallback(() => {
+        recognitionRef.current?.stop();
+        setIsListening(false);
+    }, []);
 
     const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (file) {
             const reader = new FileReader();
-            reader.onload = (event) => setImage(event.target?.result as string);
+            reader.onload = (ev) => setImage(ev.target?.result as string);
             reader.readAsDataURL(file);
         }
     };
 
     const handleSend = async () => {
-        if (!input && !image) return;
-
-        const userMsg = { role: 'user', content: input, image: image };
+        if (!input.trim() && !image) return;
+        const userMsg: Message = { role: "user", content: input, image };
         setMessages(prev => [...prev, userMsg]);
-        setInput("");
+        const currentInput = input;
         const currentImage = image;
+        setInput("");
         setImage(null);
         setIsProcessing(true);
 
         try {
-            const res = await fetch('/api/ai/agent', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+            const res = await fetch("/api/ai/agent", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
-                    prompt: input,
+                    prompt: currentInput,
                     image: currentImage,
-                    context: { location: (session.user as any)?.location }
-                })
+                    history: messages.slice(-6),
+                }),
             });
 
             if (!res.ok) {
-                const errData = await res.json().catch(() => ({}));
-                throw new Error(errData.error || "AI request failed");
+                const err = await res.json().catch(() => ({}));
+                throw new Error(err.error || "Request failed");
             }
 
             const data = await res.json();
-            setMessages(prev => [...prev, { role: 'assistant', content: data.message }]);
-            if (data.actions && data.actions.length > 0) {
-                setSuggestedActions(data.actions);
-            }
+            const assistantMsg: Message = { role: "assistant", content: data.message };
+            setMessages(prev => [...prev, assistantMsg]);
+            if (data.actions?.length > 0) setSuggestedActions(data.actions);
+            speak(data.message);
         } catch (error: any) {
-            console.error("AI Error:", error);
-            toast.error(error.message || "AI Assistant is currently unavailable");
+            const errMsg = "I'm experiencing a temporary disruption, sir. " + (error.message || "Please try again.");
+            setMessages(prev => [...prev, { role: "assistant", content: errMsg }]);
         } finally {
             setIsProcessing(false);
         }
     };
 
-    const executeAction = async (action: any, index: number) => {
+    const executeAction = async (action: Action, index: number) => {
         try {
-            const res = await fetch('/api/ai/agent/execute', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(action)
+            const res = await fetch("/api/ai/agent/execute", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(action),
             });
-
             if (res.ok) {
-                toast.success("Action applied successfully. Data revalidation may be required.");
+                toast.success("Action executed successfully, sir.");
                 setSuggestedActions(prev => prev.filter((_, i) => i !== index));
+                speak("Done, sir. The action has been applied.");
             } else {
                 throw new Error("Execution failed");
             }
-        } catch (e) {
-            toast.error("Failed to apply change");
+        } catch {
+            toast.error("Failed to execute action");
         }
     };
 
+    // All conditional returns AFTER hooks
+    if (!mounted) return null;
+
+    const userPermissions: string[] = (session?.user as any)?.permissions || [];
+    const userRole = (session?.user as any)?.role;
+    const hasAccess = userRole === "SuperAdmin" || userPermissions.includes("ai.use");
+    if (status !== "authenticated" || !hasAccess) return null;
+
+    // Floating button when closed
     if (!isOpen) {
         return (
             <button
                 type="button"
                 onClick={() => setIsOpen(true)}
-                className="fixed bottom-8 right-8 w-16 h-16 bg-gradient-to-tr from-purple-600 to-indigo-600 rounded-full shadow-2xl flex items-center justify-center hover:scale-110 transition-all z-50 group"
+                className="fixed bottom-8 right-8 z-50 group"
             >
-                <Sparkles className="text-white w-8 h-8 group-hover:rotate-12 transition-transform" />
-                <div className="absolute -top-2 -right-2 bg-red-600 text-white text-[10px] font-bold px-2 py-1 rounded-full animate-pulse">
-                    AI
+                <div className="relative w-16 h-16">
+                    {/* Animated rings */}
+                    <div className="absolute inset-0 rounded-full bg-gradient-to-tr from-cyan-400 to-blue-600 opacity-20 animate-ping" />
+                    <div className="absolute inset-0 rounded-full bg-gradient-to-tr from-cyan-400 to-blue-600 opacity-30 animate-pulse" />
+                    {/* Core button */}
+                    <div className="relative w-16 h-16 bg-gradient-to-tr from-slate-900 via-blue-900 to-slate-900 rounded-full shadow-2xl shadow-blue-500/30 flex items-center justify-center border border-cyan-400/30 group-hover:border-cyan-400/60 group-hover:shadow-cyan-500/40 transition-all duration-300 group-hover:scale-110">
+                        <Sparkles className="text-cyan-400 w-7 h-7 group-hover:rotate-12 transition-transform" />
+                    </div>
+                    <div className="absolute -top-1 -right-1 bg-cyan-400 text-slate-900 text-[9px] font-black px-2 py-0.5 rounded-full tracking-wider">
+                        J.A.R.V.I.S
+                    </div>
                 </div>
             </button>
         );
     }
 
     return (
-        <div className="fixed top-4 right-8 w-[450px] h-[calc(100vh-2rem)] max-h-[700px] bg-white border border-gray-200 rounded-2xl shadow-2xl flex flex-col z-50 overflow-hidden animate-in fade-in slide-in-from-right-8 duration-300">
+        <div className="fixed top-4 right-4 w-[440px] h-[calc(100vh-2rem)] max-h-[720px] bg-slate-950 border border-cyan-500/20 rounded-2xl shadow-2xl shadow-cyan-500/10 flex flex-col z-50 overflow-hidden backdrop-blur-xl">
             {/* Header */}
-            <div className="p-4 bg-purple-900 border-b border-purple-800 flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                    <div className="w-8 h-8 bg-white/20 rounded-lg flex items-center justify-center">
-                        <Sparkles className="w-5 h-5 text-white" />
-                    </div>
-                    <div>
-                        <h3 className="text-white font-bold text-sm">Metrowage AI</h3>
-                        <div className="flex items-center gap-1.5">
-                            <div className="w-1.5 h-1.5 bg-green-400 rounded-full animate-pulse" />
-                            <span className="text-[10px] text-purple-200 font-medium">Ready for instructions</span>
+            <div className="relative p-4 bg-gradient-to-r from-slate-900 via-blue-950 to-slate-900 border-b border-cyan-500/20">
+                {/* Scan line effect */}
+                <div className="absolute inset-0 overflow-hidden pointer-events-none">
+                    <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-cyan-400/50 to-transparent animate-pulse" />
+                </div>
+                <div className="flex items-center justify-between relative z-10">
+                    <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 bg-cyan-400/10 border border-cyan-400/30 rounded-xl flex items-center justify-center">
+                            <Sparkles className="w-5 h-5 text-cyan-400" />
+                        </div>
+                        <div>
+                            <h3 className="text-cyan-50 font-bold text-sm tracking-wide">J.A.R.V.I.S</h3>
+                            <div className="flex items-center gap-1.5">
+                                <div className={`w-1.5 h-1.5 rounded-full ${isProcessing ? "bg-yellow-400 animate-pulse" : isSpeaking ? "bg-blue-400 animate-pulse" : "bg-cyan-400"}`} />
+                                <span className="text-[10px] text-cyan-300/70 font-medium tracking-wider uppercase">
+                                    {isProcessing ? "Processing" : isSpeaking ? "Speaking" : isListening ? "Listening" : "Online"}
+                                </span>
+                            </div>
                         </div>
                     </div>
-                </div>
-                <div className="flex items-center gap-1">
-                    <button
-                        type="button"
-                        onClick={() => setIsOpen(false)}
-                        className="p-2 text-purple-200 hover:text-white hover:bg-white/10 rounded-lg transition-all"
-                        title="Minimize"
-                    >
-                        <Minus className="w-5 h-5" />
-                    </button>
-                    <button
-                        type="button"
-                        onClick={() => {
-                            setMessages([]);
-                            setSuggestedActions([]);
-                            setInput("");
-                            setImage(null);
-                            setIsOpen(false);
-                        }}
-                        className="p-2 text-red-300 hover:text-white hover:bg-red-500/50 rounded-lg transition-all"
-                        title="Close & Clear"
-                    >
-                        <X className="w-5 h-5" />
-                    </button>
+                    <div className="flex items-center gap-1">
+                        <button
+                            type="button"
+                            onClick={() => { setVoiceEnabled(!voiceEnabled); stopSpeaking(); }}
+                            className={`p-2 rounded-lg transition-all ${voiceEnabled ? "text-cyan-400 hover:bg-cyan-400/10" : "text-gray-600 hover:bg-gray-800"}`}
+                            title={voiceEnabled ? "Mute voice" : "Unmute voice"}
+                        >
+                            {voiceEnabled ? <Volume2 className="w-4 h-4" /> : <VolumeX className="w-4 h-4" />}
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => setIsOpen(false)}
+                            className="p-2 text-gray-500 hover:text-cyan-300 hover:bg-white/5 rounded-lg transition-all"
+                            title="Minimize"
+                        >
+                            <Minus className="w-4 h-4" />
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => { setMessages([]); setSuggestedActions([]); setInput(""); setImage(null); setIsOpen(false); stopSpeaking(); }}
+                            className="p-2 text-gray-600 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-all"
+                            title="Close & Clear"
+                        >
+                            <X className="w-4 h-4" />
+                        </button>
+                    </div>
                 </div>
             </div>
 
-            {/* Chat Content */}
+            {/* Chat Area */}
             <div
-                className="flex-1 overflow-y-auto p-4 space-y-4 bg-gray-50"
                 ref={scrollRef}
-                onPaste={handlePaste}
-                onDragOver={(e) => e.preventDefault()}
-                onDrop={(e) => {
+                className="flex-1 overflow-y-auto p-4 space-y-4 bg-gradient-to-b from-slate-950 to-slate-900"
+                onDragOver={e => e.preventDefault()}
+                onDrop={e => {
                     e.preventDefault();
                     const file = e.dataTransfer.files?.[0];
-                    if (file && file.type.startsWith('image/')) {
+                    if (file?.type.startsWith("image/")) {
                         const reader = new FileReader();
-                        reader.onload = (event) => setImage(event.target?.result as string);
+                        reader.onload = ev => setImage(ev.target?.result as string);
                         reader.readAsDataURL(file);
                     }
                 }}
             >
                 {messages.length === 0 && (
-                    <div className="flex flex-col items-center justify-center h-full text-center space-y-4 px-6">
-                        <div className="w-16 h-16 bg-white rounded-2xl flex items-center justify-center border border-gray-200 shadow-sm mb-2">
-                            <ImageIcon className="text-gray-400 w-8 h-8" />
+                    <div className="flex flex-col items-center justify-center h-full text-center space-y-5 px-6">
+                        <div className="relative">
+                            <div className="w-20 h-20 rounded-2xl bg-cyan-400/5 border border-cyan-400/20 flex items-center justify-center">
+                                <Sparkles className="w-10 h-10 text-cyan-400/60" />
+                            </div>
+                            <div className="absolute -inset-4 rounded-3xl bg-cyan-400/5 animate-pulse" />
                         </div>
-                        <h4 className="text-gray-900 font-bold">How can I help you today?</h4>
-                        <p className="text-xs text-gray-500 leading-relaxed">
-                            Ask me questions about workers, wages, or tell me to update a worker's details. You can also paste an image to extract records!
-                        </p>
+                        <div>
+                            <h4 className="text-cyan-50 font-bold text-base">Good day, sir.</h4>
+                            <p className="text-cyan-300/50 text-xs mt-2 leading-relaxed max-w-xs">
+                                I&apos;m your factory management assistant. Ask me about workers, production, payroll, or tell me what you need done. Voice commands are available.
+                            </p>
+                        </div>
+                        <div className="grid grid-cols-2 gap-2 w-full max-w-xs">
+                            {[
+                                "How many workers do we have?",
+                                "Show today's attendance summary",
+                                "Who has the highest production?",
+                                "What's pending in payroll?",
+                            ].map(q => (
+                                <button
+                                    key={q}
+                                    type="button"
+                                    onClick={() => { setInput(q); }}
+                                    className="text-left text-[11px] text-cyan-300/60 bg-cyan-400/5 border border-cyan-400/10 rounded-xl px-3 py-2.5 hover:bg-cyan-400/10 hover:text-cyan-300 hover:border-cyan-400/20 transition-all"
+                                >
+                                    {q}
+                                </button>
+                            ))}
+                        </div>
                     </div>
                 )}
 
                 {messages.map((m, i) => (
-                    <div key={i} className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-                        <div className={`max-w-[85%] rounded-2xl p-3 whitespace-pre-wrap text-sm shadow-sm ${m.role === 'user'
-                            ? 'bg-purple-600 text-white font-medium'
-                            : 'bg-white text-gray-800 border border-gray-200 leading-relaxed'
-                            }`}>
-                            {m.image && <img src={m.image} alt="Upload" className="rounded-lg mb-2 max-h-48 w-full object-cover border border-gray-200" />}
-                            {m.content}
+                    <div key={i} className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}>
+                        <div className={`max-w-[85%] rounded-2xl p-3.5 text-sm shadow-lg ${
+                            m.role === "user"
+                                ? "bg-gradient-to-br from-blue-600 to-blue-700 text-white"
+                                : "bg-slate-800/80 text-cyan-50 border border-cyan-500/10 backdrop-blur-sm"
+                        }`}>
+                            {m.image && (
+                                <img src={m.image} alt="Upload" className="rounded-xl mb-2 max-h-40 w-full object-cover border border-white/10" />
+                            )}
+                            <div className="whitespace-pre-wrap leading-relaxed">{m.content}</div>
                         </div>
                     </div>
                 ))}
 
                 {isProcessing && (
                     <div className="flex justify-start">
-                        <div className="bg-white border border-gray-200 rounded-2xl p-3 flex items-center gap-3 shadow-sm">
-                            <Loader2 className="w-4 h-4 text-purple-600 animate-spin" />
-                            <span className="text-xs text-gray-500">Processing...</span>
+                        <div className="bg-slate-800/80 border border-cyan-500/10 rounded-2xl p-3.5 flex items-center gap-3">
+                            <div className="flex gap-1">
+                                <div className="w-2 h-2 bg-cyan-400 rounded-full animate-bounce" style={{ animationDelay: "0ms" }} />
+                                <div className="w-2 h-2 bg-cyan-400 rounded-full animate-bounce" style={{ animationDelay: "150ms" }} />
+                                <div className="w-2 h-2 bg-cyan-400 rounded-full animate-bounce" style={{ animationDelay: "300ms" }} />
+                            </div>
+                            <span className="text-xs text-cyan-300/60">Analyzing, sir...</span>
                         </div>
                     </div>
                 )}
 
                 {/* Suggested Actions */}
                 {suggestedActions.length > 0 && (
-                    <div className="space-y-3 animate-in fade-in slide-in-from-left-4 mt-6">
-                        <div className="flex items-center justify-between px-1">
-                            <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest text-gray-500">
-                                <Check className="w-3 h-3 text-green-500" />
-                                Proposed Actions
-                            </div>
+                    <div className="space-y-3 mt-4">
+                        <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest text-cyan-400/60 px-1">
+                            <Check className="w-3 h-3" />
+                            Proposed Actions — Awaiting Approval
                         </div>
                         {suggestedActions.map((action, idx) => (
-                            <div key={idx} className="bg-white border border-purple-200 rounded-xl overflow-hidden shadow-sm hover:border-purple-400 transition-all">
+                            <div key={idx} className="bg-slate-800/60 border border-cyan-500/15 rounded-xl overflow-hidden hover:border-cyan-500/30 transition-all">
                                 <div className="p-3">
-                                    <div className="flex items-center justify-between mb-2">
-                                        <span className={'text-[9px] font-bold px-2 py-0.5 rounded uppercase bg-purple-100 text-purple-700'}>
-                                            {action.type.replace('_', ' ')}
-                                        </span>
-                                    </div>
-                                    <pre className="text-xs bg-gray-50 p-2 rounded text-gray-700 overflow-x-auto border border-gray-100 mt-2">
+                                    <span className="text-[9px] font-bold px-2 py-0.5 rounded bg-cyan-400/10 text-cyan-400 uppercase tracking-wider">
+                                        {action.type.replace(/_/g, " ")}
+                                    </span>
+                                    <pre className="text-xs bg-slate-900/60 p-2 rounded-lg text-cyan-100/70 overflow-x-auto border border-cyan-500/5 mt-2 font-mono">
                                         {JSON.stringify(action.data, null, 2)}
                                     </pre>
                                 </div>
-                                <div className="flex border-t border-gray-100">
+                                <div className="flex border-t border-cyan-500/10">
                                     <button
                                         type="button"
                                         onClick={() => executeAction(action, idx)}
-                                        className="flex-1 p-2.5 text-xs font-bold text-green-600 hover:bg-green-50 transition flex items-center justify-center gap-2 border-r border-gray-100"
+                                        className="flex-1 p-2.5 text-xs font-bold text-cyan-400 hover:bg-cyan-400/10 transition flex items-center justify-center gap-2 border-r border-cyan-500/10"
                                     >
-                                        <Check className="w-4 h-4" />
-                                        Approve & Run
+                                        <Check className="w-4 h-4" /> Execute
                                     </button>
                                     <button
                                         type="button"
                                         onClick={() => setSuggestedActions(prev => prev.filter((_, i) => i !== idx))}
-                                        className="p-2.5 text-gray-400 hover:text-red-500 hover:bg-red-50 transition px-4"
+                                        className="p-2.5 text-gray-600 hover:text-red-400 hover:bg-red-500/10 transition px-4"
                                     >
                                         <Trash2 className="w-4 h-4" />
                                     </button>
@@ -301,16 +387,13 @@ export default function MetrowageAgent() {
                 )}
             </div>
 
-            {/* Input Footer */}
-            <div className="p-4 bg-white border-t border-gray-200">
+            {/* Input */}
+            <div className="p-3 bg-slate-900/80 border-t border-cyan-500/15">
                 {image && (
-                    <div className="relative inline-block mb-3 animate-in zoom-in-50">
-                        <img src={image} alt="Preview" className="w-16 h-16 object-cover rounded-xl border-2 border-purple-500 shadow-sm" />
-                        <button
-                            type="button"
-                            onClick={() => setImage(null)}
-                            className="absolute -top-2 -right-2 bg-red-500 text-white p-1 rounded-full shadow-md"
-                        >
+                    <div className="relative inline-block mb-2">
+                        <img src={image} alt="Preview" className="w-14 h-14 object-cover rounded-xl border border-cyan-500/30" />
+                        <button type="button" onClick={() => setImage(null)}
+                            className="absolute -top-1.5 -right-1.5 bg-red-500 text-white p-0.5 rounded-full">
                             <X className="w-3 h-3" />
                         </button>
                     </div>
@@ -319,35 +402,46 @@ export default function MetrowageAgent() {
                     <button
                         type="button"
                         onClick={() => fileInputRef.current?.click()}
-                        className="p-3 bg-gray-100 text-gray-500 hover:text-purple-600 rounded-xl transition-colors border border-gray-200"
+                        className="p-3 bg-slate-800 text-gray-500 hover:text-cyan-400 rounded-xl transition-colors border border-cyan-500/10 hover:border-cyan-500/20"
                     >
-                        <Upload className="w-5 h-5" />
+                        <Upload className="w-4 h-4" />
                     </button>
-                    <input
-                        type="file"
-                        ref={fileInputRef}
-                        onChange={handleFileSelect}
-                        className="hidden"
-                        accept="image/*"
-                    />
+                    <input type="file" ref={fileInputRef} onChange={handleFileSelect} className="hidden" accept="image/*" />
+
+                    <button
+                        type="button"
+                        onClick={isListening ? stopListening : startListening}
+                        className={`relative p-3 rounded-xl transition-all border ${
+                            isListening
+                                ? "bg-red-500/20 text-red-400 border-red-500/30 animate-pulse"
+                                : "bg-slate-800 text-gray-500 hover:text-cyan-400 border-cyan-500/10 hover:border-cyan-500/20"
+                        }`}
+                    >
+                        {isListening ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
+                        {pulseRing && <div className="absolute inset-0 rounded-xl border-2 border-cyan-400 animate-ping" />}
+                    </button>
+
                     <div className="flex-1 relative">
                         <input
                             type="text"
                             value={input}
-                            onChange={(e) => setInput(e.target.value)}
-                            onKeyDown={(e) => e.key === 'Enter' && handleSend()}
-                            placeholder="Type or paste image..."
-                            className="w-full bg-white border border-gray-300 rounded-xl px-4 py-3 text-gray-900 placeholder:text-gray-400 focus:ring-2 focus:ring-purple-500 outline-none pr-12 transition-all"
+                            onChange={e => setInput(e.target.value)}
+                            onKeyDown={e => e.key === "Enter" && !e.shiftKey && handleSend()}
+                            placeholder={isListening ? "Listening..." : "Ask J.A.R.V.I.S anything..."}
+                            className="w-full bg-slate-800 border border-cyan-500/15 rounded-xl px-4 py-3 text-cyan-50 placeholder:text-gray-600 focus:ring-1 focus:ring-cyan-500/30 focus:border-cyan-500/30 outline-none pr-12 text-sm transition-all"
                         />
                         <button
                             type="button"
                             onClick={handleSend}
-                            disabled={isProcessing || (!input && !image)}
-                            className="absolute right-2 top-2 p-2 bg-purple-600 hover:bg-purple-700 disabled:opacity-50 disabled:hover:bg-purple-600 text-white rounded-lg transition-colors"
+                            disabled={isProcessing || (!input.trim() && !image)}
+                            className="absolute right-2 top-1.5 p-2 bg-cyan-500 hover:bg-cyan-400 disabled:opacity-30 disabled:hover:bg-cyan-500 text-slate-900 rounded-lg transition-colors"
                         >
                             <Send className="w-4 h-4" />
                         </button>
                     </div>
+                </div>
+                <div className="flex items-center justify-center mt-2">
+                    <span className="text-[9px] text-gray-700 tracking-widest uppercase">Powered by Gemini 2.0 Flash</span>
                 </div>
             </div>
         </div>
