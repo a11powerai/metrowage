@@ -1,19 +1,21 @@
 import { prisma } from "@/lib/prisma";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
+import { getSessionContext } from "@/lib/session-utils";
 import { Users, Package, ClipboardList, TrendingUp, Clock, FileCheck } from "lucide-react";
 import { formatCurrency } from "@/lib/utils";
 import { format } from "date-fns";
 
 export default async function DashboardPage() {
-    const session = await getServerSession(authOptions);
-    const role = (session?.user as any)?.role;
+    const ctx = await getSessionContext();
+    const role = ctx?.role;
+    const locFilter = ctx?.getLocationFilter() || {};
 
     const today = new Date();
     const todayStr = format(today, "yyyy-MM-dd");
 
     const [workerCount, productCount, todayDay, totalPayout, todayAttendance, pendingLeaves] = await Promise.all([
-        prisma.worker.count({ where: { status: "Active" } }),
+        prisma.worker.count({ where: { status: "Active", ...locFilter } }),
         prisma.product.count(),
         prisma.productionDay.findFirst({
             where: {
@@ -22,11 +24,11 @@ export default async function DashboardPage() {
                     lt: new Date(new Date().setHours(23, 59, 59, 999)),
                 },
             },
-            include: { lines: true },
+            include: { lines: { where: { worker: locFilter } } },
         }),
-        prisma.productionLine.aggregate({ _sum: { lineTotal: true } }),
-        prisma.attendance.count({ where: { date: new Date(todayStr), status: "Present" } }),
-        prisma.leave.count({ where: { status: "Pending" } }),
+        prisma.productionLine.aggregate({ where: { worker: locFilter }, _sum: { lineTotal: true } }),
+        prisma.attendance.count({ where: { date: new Date(todayStr), status: "Present", worker: locFilter } }),
+        prisma.leave.count({ where: { status: "Pending", worker: locFilter } }),
     ]);
 
     const todayTotal = todayDay?.lines.reduce((a, l) => a + l.lineTotal, 0) ?? 0;
@@ -45,7 +47,7 @@ export default async function DashboardPage() {
             <div className="mb-8">
                 <h1 className="text-2xl font-bold text-gray-900">Dashboard</h1>
                 <p className="text-gray-500 text-sm mt-1">
-                    Welcome back, <span className="font-medium text-purple-700">{session?.user?.name}</span> · <span className="text-gray-500">{role}</span>
+                    Welcome back · <span className="text-gray-500">{role}</span>
                 </p>
             </div>
 

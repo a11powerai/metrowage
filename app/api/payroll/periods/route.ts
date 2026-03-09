@@ -35,6 +35,11 @@ export async function POST(req: Request) {
         });
     }
 
+    const holidays = await prisma.holiday.findMany({
+        where: { date: { gte: startOfDay(start), lte: endOfDay(end) } }
+    });
+    const holidayDates = new Set(holidays.map(h => startOfDay(h.date).getTime()));
+
     // Get active workers for the location, optionally filtered by workerIds
     const workerFilter: any = {
         status: "Active",
@@ -73,10 +78,44 @@ export async function POST(req: Request) {
         });
         const periodDays = Math.round((end.getTime() - start.getTime()) / 86400000) + 1;
         const workWeeks = Math.max(1, Math.round(periodDays / 7));
-        const presentDays = await prisma.attendance.count({
+
+        // --- Time Based Basic Salary & OT calculation ---
+        let standardHoursPerDay = 9; // Default fallback
+        if (profile?.dutyStart && profile?.dutyEnd) {
+            const [startH, startM] = profile.dutyStart.split(':').map(Number);
+            const [endH, endM] = profile.dutyEnd.split(':').map(Number);
+            let diffHours = (endH + endM / 60) - (startH + startM / 60);
+
+            // Typical 1h lunch break deduction if standard shift > 5 hours
+            if (diffHours > 5) diffHours -= 1;
+            if (diffHours > 0) standardHoursPerDay = diffHours;
+        }
+
+        const attendances = await prisma.attendance.findMany({
             where: { workerId: worker.id, date: { gte: start, lte: end }, status: "Present" },
         });
-        const effectiveDays = presentDays > 0 ? presentDays : periodDays;
+        const presentDaysCount = attendances.length;
+        const effectiveDays = presentDaysCount > 0 ? presentDaysCount : periodDays;
+
+        let regularHoursSum = 0;
+        let autoOtHoursSum = 0;
+
+        for (const att of attendances) {
+            const isHoliday = holidayDates.has(startOfDay(att.date).getTime());
+            // fallback to their standard hours if present but no hours recorded (e.g. forgot checkout)
+            let hw = (att.hoursWorked && att.hoursWorked > 0) ? att.hoursWorked : standardHoursPerDay;
+
+            if (isHoliday) {
+                autoOtHoursSum += hw;
+            } else {
+                if (hw > standardHoursPerDay) {
+                    regularHoursSum += standardHoursPerDay;
+                    autoOtHoursSum += (hw - standardHoursPerDay);
+                } else {
+                    regularHoursSum += hw;
+                }
+            }
+        }
 
         const allowancesTotal = Math.round(allowances.reduce((s, a) => {
             if (a.frequency === "Daily") return s + a.amount * effectiveDays;
@@ -104,26 +143,25 @@ export async function POST(req: Request) {
         });
         const deductionsTotal = Math.round(deductions.reduce((s, d) => s + d.amount, 0));
 
-        // presentDays for payroll record
-        const presentDaysCount = presentDays;
-
-        // --- Basic salary based on time & OT ---
-        // Formula: (Basic Salary / Standard Hours) * Hours Worked
-        // Assuming standard month is 26 days * 8 hours = 208 hours
-        const standardHoursPerMonth = 208;
         const basicSalaryAmount = profile?.basicSalary ?? 0;
+        const salaryFreq = profile?.salaryFrequency ?? "Monthly";
+        let basicSalary = 0;
 
-        // Use actually worked hours for basic salary if specified
-        // Otherwise fallback to proportional by present days
-        const totalHoursInPeriod = await prisma.attendance.aggregate({
-            where: { workerId: worker.id, date: { gte: start, lte: end } },
-            _sum: { hoursWorked: true }
-        });
-        const hoursWorkedSum = totalHoursInPeriod._sum.hoursWorked ?? (presentDaysCount * 8);
+        if (salaryFreq === "Daily") {
+            // For Daily workers, 'basicSalary' represents their daily rate. 
+            // Paid for Present Days.
+            basicSalary = Math.round(basicSalaryAmount * presentDaysCount);
+        } else {
+            // Monthly workers
+            // We use standard 26 days * standardHoursPerDay to prorate hours worked.
+            const standardHoursPerMonth = 26 * standardHoursPerDay;
+            if (standardHoursPerMonth > 0) {
+                basicSalary = Math.round((basicSalaryAmount / standardHoursPerMonth) * regularHoursSum);
+            }
+        }
 
-        const basicSalary = Math.round((basicSalaryAmount / standardHoursPerMonth) * hoursWorkedSum);
-
-        const overtimeHours = body.overtimeHours?.[worker.id] ?? 0;
+        const manualOt = body.overtimeHours?.[worker.id] ?? 0;
+        const overtimeHours = autoOtHoursSum + manualOt;
         const overtimePay = Math.round((profile?.overtimeRate ?? 0) * overtimeHours);
 
         const grossPay = basicSalary + overtimePay + allowancesTotal + commissionsTotal + assemblyEarnings;

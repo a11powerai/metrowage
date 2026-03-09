@@ -5,9 +5,9 @@
  * Overtime: Any hours worked beyond 8 standard hours per day
  */
 
-export const STANDARD_HOURS_PER_DAY = 8;
+export const STANDARD_HOURS_PER_DAY = 9;
 export const STANDARD_DAYS_PER_MONTH = 26;
-export const STANDARD_HOURS_PER_MONTH = STANDARD_HOURS_PER_DAY * STANDARD_DAYS_PER_MONTH; // 208
+export const STANDARD_HOURS_PER_MONTH = STANDARD_HOURS_PER_DAY * STANDARD_DAYS_PER_MONTH; // 234
 
 export const SHIFT_START_HOUR = 8;   // 8:00 AM
 export const SHIFT_START_MIN = 0;
