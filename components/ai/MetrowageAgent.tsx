@@ -441,7 +441,7 @@ export default function MetrowageAgent() {
                     </div>
                 </div>
                 <div className="flex items-center justify-center mt-2">
-                    <span className="text-[9px] text-gray-700 tracking-widest uppercase">Powered by Gemini 2.0 Flash</span>
+                    <span className="text-[9px] text-gray-700 tracking-widest uppercase">Powered by Gemini 2.5 Flash</span>
                 </div>
             </div>
         </div>
