@@ -13,8 +13,8 @@ const statusColors: Record<string, string> = {
 
 export default function AttendancePage() {
     const { data: session } = useSession();
-    const role = (session?.user as any)?.role as string;
-    const canEdit = role === "SuperAdmin" || role === "Admin";
+    const permissions: string[] = (session?.user as any)?.permissions ?? [];
+    const canEdit = permissions.includes("attendance.log") || permissions.includes("admin.users");
 
     const [workers, setWorkers] = useState<any[]>([]);
     const [records, setRecords] = useState<any[]>([]);
