@@ -176,11 +176,29 @@ async function main() {
       console.log(`✅ Assigned role "${matchedRole.name}" to user "${user.name}"`);
     }
   }
+
+  // 8. Seed default shift config
+  const existingShift = await prisma.shiftConfig.findFirst({ where: { isDefault: true } });
+  if (!existingShift) {
+    await prisma.shiftConfig.create({
+      data: {
+        name: "Default Shift",
+        startTime: "08:00",
+        endTime: "17:30",
+        breakMinutes: 60,
+        standardHours: 8,
+        isDefault: true,
+      },
+    });
+    console.log("✅ Default shift config seeded (08:00–17:30, 8h standard)");
+  } else {
+    console.log("ℹ️  Default shift config already exists.");
+  }
 }
 
 main()
-  .catch((e) => {
-    console.error(e);
-    process.exit(1);
-  })
-  .finally(() => prisma.$disconnect());
+    .catch((e) => {
+        console.error(e);
+        process.exit(1);
+    })
+    .finally(() => prisma.$disconnect());

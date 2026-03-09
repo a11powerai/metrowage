@@ -7,7 +7,7 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-// ─── Auth ────────────────────────────────────────────────────
+// ─── Auth & Roles ─────────────────────────────────────────────
 model User {
   id         Int       @id @default(autoincrement())
   email      String    @unique
@@ -50,18 +50,32 @@ model RolePermission {
   @@unique([roleId, permissionId])
 }
 
-
 // ─── Locations ────────────────────────────────────────────────
 model Location {
-  id        Int      @id @default(autoincrement())
-  name      String
-  address   String
-  lat       Float?
-  lng       Float?
-  radius    Float?   @default(200)  // metres
-  createdAt DateTime @default(now())
-  workers   Worker[]
-  users     User[]
+  id           Int           @id @default(autoincrement())
+  name         String
+  address      String
+  lat          Float?
+  lng          Float?
+  radius       Float?        @default(200)  // metres
+  createdAt    DateTime      @default(now())
+  workers      Worker[]
+  users        User[]
+  shiftConfigs ShiftConfig[]
+}
+
+// ─── Shift Configuration ─────────────────────────────────────
+model ShiftConfig {
+  id            Int       @id @default(autoincrement())
+  name          String    @default("Default Shift")
+  startTime     String    @default("08:00")
+  endTime       String    @default("17:30")
+  breakMinutes  Int       @default(60)
+  standardHours Float     @default(8.0)
+  isDefault     Boolean   @default(false)
+  locationId    Int?
+  createdAt     DateTime  @default(now())
+  location      Location? @relation(fields: [locationId], references: [id])
 }
 
 // ─── Workers & Products ──────────────────────────────────────
@@ -218,7 +232,7 @@ model Deduction {
   type           String   // Loan | Advance | Statutory | Penalty | Other
   description    String
   amount         Float
-  frequency      String   @default("OneTime")  // OneTime | Weekly | Daily
+  frequency      String   @default("OneTime")  // OneTime | Weekly | Daily | Monthly
   periodStart    DateTime
   periodEnd      DateTime
   applied        Boolean  @default(false)
