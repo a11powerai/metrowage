@@ -17,26 +17,10 @@ export default function MetrowageAgent() {
     const scrollRef = useRef<HTMLDivElement>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
 
+    // 1. All Hooks Must Come First
     useEffect(() => {
         setMounted(true);
     }, []);
-
-    // Ensure hydration matches strictly between server and client
-    if (!mounted) {
-        return null;
-    }
-
-    // Dynamic Permission check
-    const userRole = (session?.user as any)?.role;
-    const userPermissions = (session?.user as any)?.permissions || [];
-
-    // Only allow if SuperAdmin OR has ai.use permission
-    const hasAccess = userRole === "SuperAdmin" || userPermissions.includes("ai.use");
-
-    // Fix hydration: Wait until NextAuth determines session status on the client
-    if (status !== "authenticated" || !hasAccess) {
-        return null;
-    }
 
     // Scroll to bottom
     // biome-ignore lint/correctness/useExhaustiveDependencies: scroll
@@ -44,10 +28,12 @@ export default function MetrowageAgent() {
         if (scrollRef.current) {
             scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
         }
-    }, [messages, suggestedActions]);
+    }, [messages, suggestedActions, isOpen]);
 
     // Global Paste Listener
     useEffect(() => {
+        if (typeof window === "undefined") return;
+
         const handleGlobalPaste = (e: ClipboardEvent) => {
             if (!isOpen) return;
             const items = e.clipboardData?.items;
@@ -69,6 +55,24 @@ export default function MetrowageAgent() {
         window.addEventListener('paste', handleGlobalPaste);
         return () => window.removeEventListener('paste', handleGlobalPaste);
     }, [isOpen]);
+
+    // 2. Conditional returns come AFTER all hook declarations
+    // Ensure hydration matches strictly between server and client
+    if (!mounted) {
+        return null;
+    }
+
+    // Dynamic Permission check
+    const userRole = (session?.user as any)?.role;
+    const userPermissions = (session?.user as any)?.permissions || [];
+
+    // Only allow if SuperAdmin OR has ai.use permission
+    const hasAccess = userRole === "SuperAdmin" || userPermissions.includes("ai.use");
+
+    // Fix hydration: Wait until NextAuth determines session status on the client
+    if (status !== "authenticated" || !hasAccess) {
+        return null;
+    }
 
     const handlePaste = (e: React.ClipboardEvent) => {
         const items = e.clipboardData.items;
