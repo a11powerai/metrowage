@@ -23,6 +23,7 @@ const PERMISSIONS = [
   { key: "locations.manage", module: "Locations", label: "Manage Locations" },
   { key: "admin.users", module: "Admin", label: "Manage Users" },
   { key: "admin.roles", module: "Admin", label: "Manage Roles & Permissions" },
+  { key: "ai.use", module: "AI Assistant", label: "Use AI Assistant" },
 ];
 
 // ─── Default roles + their permission keys ──────────────────
