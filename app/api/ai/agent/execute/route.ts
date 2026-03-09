@@ -5,7 +5,11 @@ import { prisma } from "@/lib/prisma";
 
 export async function POST(req: NextRequest) {
     const session = await getServerSession(authOptions);
-    if (!session || !["SuperAdmin", "Admin"].includes(session.user.role as string)) {
+    const userRole = (session?.user as any)?.role;
+    const userPermissions = (session?.user as any)?.permissions || [];
+    const hasAccess = userRole === "SuperAdmin" || userPermissions.includes("ai.use");
+
+    if (!session || !hasAccess) {
         return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
