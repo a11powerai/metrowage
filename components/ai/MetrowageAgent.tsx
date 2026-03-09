@@ -7,6 +7,7 @@ import { toast } from "sonner";
 
 export default function MetrowageAgent() {
     const { data: session, status } = useSession();
+    const [mounted, setMounted] = useState(false);
     const [isOpen, setIsOpen] = useState(false);
     const [messages, setMessages] = useState<any[]>([]);
     const [input, setInput] = useState("");
@@ -15,6 +16,15 @@ export default function MetrowageAgent() {
     const [suggestedActions, setSuggestedActions] = useState<any[]>([]);
     const scrollRef = useRef<HTMLDivElement>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
+
+    useEffect(() => {
+        setMounted(true);
+    }, []);
+
+    // Ensure hydration matches strictly between server and client
+    if (!mounted) {
+        return null;
+    }
 
     // Dynamic Permission check
     const userRole = (session?.user as any)?.role;
