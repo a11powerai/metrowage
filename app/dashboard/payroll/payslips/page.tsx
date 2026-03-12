@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useState, Suspense } from "react";
 import { formatCurrency, formatDate } from "@/lib/utils";
-import { Download, ChevronDown, ChevronUp, Calendar } from "lucide-react";
+import { Download, ChevronDown, ChevronUp, Calendar, Clock } from "lucide-react";
 import { useSearchParams } from "next/navigation";
 
 interface AssemblyLine {
@@ -15,7 +15,7 @@ interface AssemblyLine {
 
 interface PayrollRecord {
     id: number;
-    worker: { name: string };
+    worker: { name: string; locationId: number | null; location: { name: string } | null };
     basicSalary: number;
     overtimeHours: number;
     overtimePay: number;
@@ -25,6 +25,9 @@ interface PayrollRecord {
     deductionsTotal: number;
     grossPay: number;
     netPay: number;
+    presentDays: number;
+    totalHoursWorked: number;
+    totalScheduledHours: number;
     assemblyLines: AssemblyLine[];
     allowanceLines: { id: number; name: string; amount: number }[];
     deductionLines: { id: number; type: string; description: string; amount: number }[];
@@ -44,13 +47,16 @@ function PayslipsContent() {
     const searchParams = useSearchParams();
     const initialPeriodId = searchParams.get("periodId");
     const [periods, setPeriods] = useState<any[]>([]);
+    const [locations, setLocations] = useState<any[]>([]);
     const [period, setPeriod] = useState<any>(null);
     const [selectedPeriodId, setSelectedPeriodId] = useState<string>(initialPeriodId ?? "");
+    const [filterLocationId, setFilterLocationId] = useState<string>("");
     const [expanded, setExpanded] = useState<number | null>(null);
     const [loading, setLoading] = useState(false);
 
     useEffect(() => {
         fetch("/api/payroll/periods").then(r => r.json()).then(setPeriods);
+        fetch("/api/locations").then(r => r.json()).then(setLocations);
     }, []);
 
     useEffect(() => {
@@ -60,6 +66,10 @@ function PayslipsContent() {
         }
     }, [selectedPeriodId]);
 
+    const filteredRecords: PayrollRecord[] = (period?.records ?? []).filter((r: PayrollRecord) =>
+        !filterLocationId || String(r.worker.locationId) === filterLocationId
+    );
+
     const exportPayslipPDF = async (record: PayrollRecord) => {
         const { jsPDF } = await import("jspdf");
         const doc = new jsPDF();
@@ -67,7 +77,12 @@ function PayslipsContent() {
         doc.setFontSize(16); doc.text("MetroWage — Payslip", 14, y); y += 10;
         doc.setFontSize(11);
         doc.text(`Worker: ${record.worker.name} | Period: ${period?.name}`, 14, y); y += 8;
-        doc.text(`Generated: ${new Date().toLocaleDateString()}`, 14, y); y += 12;
+        doc.text(`Location: ${record.worker.location?.name ?? "—"}`, 14, y); y += 8;
+        doc.text(`Generated: ${new Date().toLocaleDateString()}`, 14, y); y += 8;
+
+        // Hours summary
+        doc.setFontSize(10);
+        doc.text(`Hours Worked: ${record.totalHoursWorked}h  |  Scheduled Hours: ${record.totalScheduledHours}h  |  Days Present: ${record.presentDays}`, 14, y); y += 12;
 
         doc.setFontSize(12); doc.text("EARNINGS", 14, y); y += 8;
         doc.setFontSize(9);
@@ -101,9 +116,14 @@ function PayslipsContent() {
 
     const exportSummaryExcel = async () => {
         const XLSX = await import("xlsx");
-        const rows = period?.records?.map((r: any) => ({
+        const rows = filteredRecords.map((r: PayrollRecord) => ({
             Worker: r.worker.name,
+            Location: r.worker.location?.name ?? "",
+            "Days Present": r.presentDays,
+            "Hours Worked": r.totalHoursWorked,
+            "Scheduled Hours": r.totalScheduledHours,
             "Basic Salary": r.basicSalary,
+            "OT Hours": r.overtimeHours,
             "OT Pay": r.overtimePay,
             "Allowances": r.allowancesTotal,
             "Commissions": r.commissionsTotal,
@@ -112,13 +132,15 @@ function PayslipsContent() {
             "Deductions": r.deductionsTotal,
             "Net Pay": r.netPay,
         }));
-        const ws = XLSX.utils.json_to_sheet(rows ?? []);
+        const ws = XLSX.utils.json_to_sheet(rows);
         const wb = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(wb, ws, "Payroll Summary");
         XLSX.writeFile(wb, `metrowage-payroll-${period?.name}.xlsx`);
     };
 
-    const factoryTotal = period?.records?.reduce((s: number, r: any) => s + r.netPay, 0) ?? 0;
+    const factoryTotal = filteredRecords.reduce((s: number, r: PayrollRecord) => s + r.netPay, 0);
+
+    const selectCls = "px-3 py-2 bg-white border border-purple-200 rounded-lg text-sm focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-200 text-gray-800";
 
     return (
         <div>
@@ -135,19 +157,23 @@ function PayslipsContent() {
             </div>
 
 
-            <div className="flex items-center gap-3 mb-6">
-                <select value={selectedPeriodId} onChange={e => setSelectedPeriodId(e.target.value)} className="px-3 py-2 bg-white border border-purple-200 rounded-lg text-sm focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-200 text-gray-800">
+            <div className="flex flex-wrap items-center gap-3 mb-6">
+                <select value={selectedPeriodId} onChange={e => setSelectedPeriodId(e.target.value)} className={selectCls}>
                     <option value="">Select payroll period</option>
                     {periods.map((p: any) => <option key={p.id} value={p.id}>{p.name}</option>)}
                 </select>
-                {period && <div className="text-gray-500 text-sm">Factory Total Payout: <span className="text-gray-900 font-bold">{formatCurrency(factoryTotal)}</span></div>}
+                <select value={filterLocationId} onChange={e => setFilterLocationId(e.target.value)} className={selectCls}>
+                    <option value="">All Locations</option>
+                    {locations.map((l: any) => <option key={l.id} value={l.id}>{l.name}</option>)}
+                </select>
+                {period && <div className="text-gray-500 text-sm">Total Payout: <span className="text-gray-900 font-bold">{formatCurrency(factoryTotal)}</span></div>}
             </div>
 
 
             {loading && <div className="text-gray-400 text-sm py-8 text-center bg-gray-50 rounded-2xl border border-dashed border-gray-200">Loading payslips…</div>}
 
 
-            {period?.records?.map((record: PayrollRecord) => {
+            {filteredRecords.map((record: PayrollRecord) => {
                 const assemblyByDate = groupByDate(record.assemblyLines);
                 const sortedDates = Object.keys(assemblyByDate).sort();
 
@@ -159,7 +185,17 @@ function PayslipsContent() {
                                 <div className="w-10 h-10 rounded-full bg-purple-100 border border-purple-200 flex items-center justify-center text-purple-700 text-sm font-bold shadow-sm">
                                     {record.worker.name[0]}
                                 </div>
-                                <div><div className="font-semibold text-gray-900">{record.worker.name}</div></div>
+                                <div>
+                                    <div className="font-semibold text-gray-900">{record.worker.name}</div>
+                                    {record.worker.location && (
+                                        <div className="text-[10px] text-gray-400">{record.worker.location.name}</div>
+                                    )}
+                                    <div className="flex items-center gap-1 mt-0.5">
+                                        <Clock className="w-3 h-3 text-blue-400" />
+                                        <span className="text-[11px] text-blue-600 font-medium">{record.totalHoursWorked}h worked</span>
+                                        <span className="text-[11px] text-gray-400">/ {record.totalScheduledHours}h scheduled · {record.presentDays} days</span>
+                                    </div>
+                                </div>
                             </div>
                             <div className="flex items-center gap-4">
                                 <div className="text-right text-[10px] text-gray-400 uppercase tracking-wider font-semibold">Net Pay <div className="text-emerald-600 text-lg font-bold flex items-center gap-1">{formatCurrency(record.netPay)}</div></div>
@@ -178,6 +214,24 @@ function PayslipsContent() {
                                 {/* Earnings */}
                                 <div>
                                     <h3 className="text-[10px] text-gray-400 uppercase tracking-widest font-bold mb-3 px-1">Earnings</h3>
+
+                                    {/* Hours summary panel */}
+                                    <div className="mb-3 px-3 py-2 bg-blue-50 border border-blue-100 rounded-xl flex flex-wrap items-center gap-x-4 gap-y-1 text-xs">
+                                        <div className="flex items-center gap-1.5 text-blue-700">
+                                            <Clock className="w-3.5 h-3.5" />
+                                            <span className="font-semibold">Hours Worked:</span>
+                                            <span className="font-bold">{record.totalHoursWorked}h</span>
+                                        </div>
+                                        <div className="text-gray-300">|</div>
+                                        <div className="text-gray-600">
+                                            <span className="font-semibold">Scheduled:</span> {record.totalScheduledHours}h
+                                        </div>
+                                        <div className="text-gray-300">|</div>
+                                        <div className="text-gray-600">
+                                            <span className="font-semibold">Days Present:</span> {record.presentDays}
+                                        </div>
+                                    </div>
+
                                     <div className="space-y-1.5 text-sm">
                                         {record.basicSalary > 0 && <div className="flex justify-between px-1 text-gray-700"><span>Basic Salary</span><span className="text-emerald-600 font-medium">{formatCurrency(record.basicSalary)}</span></div>}
                                         {record.overtimePay > 0 && <div className="flex justify-between px-1 text-gray-700"><span>Overtime ({record.overtimeHours}h)</span><span className="text-emerald-600 font-medium">{formatCurrency(record.overtimePay)}</span></div>}
