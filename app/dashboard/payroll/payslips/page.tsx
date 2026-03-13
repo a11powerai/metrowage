@@ -139,7 +139,6 @@ function PayslipsContent() {
     };
 
     const factoryTotal = filteredRecords.reduce((s: number, r: PayrollRecord) => s + r.netPay, 0);
-
     const selectCls = "px-3 py-2 bg-white border border-purple-200 rounded-lg text-sm focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-200 text-gray-800";
 
     return (
@@ -155,7 +154,6 @@ function PayslipsContent() {
                     </button>
                 )}
             </div>
-
 
             <div className="flex flex-wrap items-center gap-3 mb-6">
                 <select value={selectedPeriodId} onChange={e => setSelectedPeriodId(e.target.value)} className={selectCls}>

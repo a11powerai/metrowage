@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Play, Lock, X, Trash2 } from "lucide-react";
+import { Play, Lock, X, Trash2, AlertTriangle } from "lucide-react";
 import { formatCurrency } from "@/lib/utils";
 import Link from "next/link";
 import { useSession } from "next-auth/react";
@@ -27,6 +27,7 @@ export default function RunPayrollPage() {
     const [periods, setPeriods] = useState<any[]>([]);
     const [locations, setLocations] = useState<any[]>([]);
     const [selectedLocationId, setSelectedLocationId] = useState<string>("");
+    const [missingProfiles, setMissingProfiles] = useState<number>(0);
     const [showForm, setShowForm] = useState(false);
     const [loading, setLoading] = useState(false);
     const [msg, setMsg] = useState<{ type: "success" | "error"; text: string } | null>(null);
@@ -36,12 +37,23 @@ export default function RunPayrollPage() {
 
 
     const load = async () => {
-        const [pRes, lRes] = await Promise.all([
+        const [pRes, lRes, wRes, prRes] = await Promise.all([
             fetch("/api/payroll/periods"),
             fetch("/api/locations"),
+            fetch("/api/workers"),
+            fetch("/api/payroll/profiles"),
         ]);
         setPeriods(await pRes.json());
         setLocations(await lRes.json());
+
+        const workersData = await wRes.json();
+        const profilesData = await prRes.json();
+        const activeWorkers = Array.isArray(workersData) ? workersData.filter((w: any) => w.status === "Active") : [];
+        const profiles = Array.isArray(profilesData) ? profilesData : [];
+        const missing = activeWorkers.filter((w: any) =>
+            !profiles.find((p: any) => p.workerId === w.id && p.basicSalary > 0)
+        ).length;
+        setMissingProfiles(missing);
     };
     useEffect(() => { load(); }, []);
 
@@ -96,6 +108,15 @@ export default function RunPayrollPage() {
                 </button>
             </div>
 
+            {missingProfiles > 0 && (
+                <div className="mb-4 p-3 bg-amber-50 border border-amber-200 rounded-lg text-sm text-amber-800 flex items-start gap-2">
+                    <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" />
+                    <span>
+                        <strong>{missingProfiles} active worker(s)</strong> have no basic salary configured — their payslips will show Rs. 0.{" "}
+                        <Link href="/dashboard/payroll/profiles" className="underline font-medium">Set up salary profiles →</Link>
+                    </span>
+                </div>
+            )}
 
             {msg && (
                 <div className={`px-4 py-3 rounded-lg mb-6 text-sm flex items-center justify-between font-medium ${msg.type === "success" ? "bg-emerald-50 border border-emerald-100 text-emerald-700" : "bg-red-50 border border-red-100 text-red-700"}`}>

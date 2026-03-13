@@ -156,7 +156,7 @@ export async function POST(req: Request) {
         let basicSalary = 0;
 
         if (salaryFreq === "Daily") {
-            // For Daily workers, 'basicSalary' represents their daily rate. 
+            // For Daily workers, 'basicSalary' represents their daily rate.
             // Paid for Present Days.
             basicSalary = Math.round(basicSalaryAmount * presentDaysCount);
         } else {
