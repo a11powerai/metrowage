@@ -33,5 +33,5 @@ jobs:
         env:
           DATABASE_URL: "file:./prisma/dev.db"
           # Pulled from GitHub repo → Settings → Secrets and variables → Actions
-          NEXTAUTH_SECRET: ${{ secrets.NEXTAUTH_SECRET }}
-          NEXTAUTH_URL: ${{ secrets.NEXTAUTH_URL }}
+          NEXTAUTH_SECRET: ${{ secrets.NEXTAUTH_SECRET || 'build-time-secret-placeholder' }}
+          NEXTAUTH_URL: ${{ secrets.NEXTAUTH_URL || 'https://hr.metromarqo.lk' }}
