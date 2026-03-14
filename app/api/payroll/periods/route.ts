@@ -20,7 +20,7 @@ export async function POST(req: Request) {
     const ctx = await getSessionContext();
     if (!ctx) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-    const { name, periodStart, periodEnd, workerIds } = body;
+    const { name, periodStart, periodEnd, workerIds, locationId } = body;
     const start = new Date(periodStart);
     const end = new Date(periodEnd);
 
@@ -40,11 +40,15 @@ export async function POST(req: Request) {
     });
     const holidayDates = new Set(holidays.map(h => startOfDay(h.date).getTime()));
 
-    // Get active workers for the location, optionally filtered by workerIds
+    // Get active workers for the location, optionally filtered by workerIds or explicit locationId
     const workerFilter: any = {
         status: "Active",
         ...ctx.getLocationFilter()
     };
+    // Allow Admin/SuperAdmin to target a specific location when generating payroll
+    if (locationId && (ctx.role === "SuperAdmin" || ctx.role === "Admin")) {
+        workerFilter.locationId = Number(locationId);
+    }
     if (workerIds && Array.isArray(workerIds)) {
         workerFilter.id = { in: workerIds.map(Number) };
     }
@@ -79,15 +83,15 @@ export async function POST(req: Request) {
         const periodDays = Math.round((end.getTime() - start.getTime()) / 86400000) + 1;
         const workWeeks = Math.max(1, Math.round(periodDays / 7));
 
-        // --- Time Based Basic Salary & OT calculation ---
+        // --- Standard hours per day: full shift duration including breaks ---
+        // Overtime is earned only AFTER completing the full standard shift hours.
+        // e.g. 08:00–17:00 = 9h standard (including breaks); OT starts only after 9 hours worked.
         let standardHoursPerDay = 9; // Default fallback
         if (profile?.dutyStart && profile?.dutyEnd) {
             const [startH, startM] = profile.dutyStart.split(':').map(Number);
             const [endH, endM] = profile.dutyEnd.split(':').map(Number);
-            let diffHours = (endH + endM / 60) - (startH + startM / 60);
-
-            // Typical 1h lunch break deduction if standard shift > 5 hours
-            if (diffHours > 5) diffHours -= 1;
+            const diffHours = (endH + endM / 60) - (startH + startM / 60);
+            // Full shift duration is used as OT threshold (breaks are included in standard hours)
             if (diffHours > 0) standardHoursPerDay = diffHours;
         }
 
@@ -116,6 +120,10 @@ export async function POST(req: Request) {
                 }
             }
         }
+
+        // Total actual hours worked and total scheduled hours for the period
+        const totalHoursWorked = Math.round((regularHoursSum + autoOtHoursSum) * 100) / 100;
+        const totalScheduledHours = Math.round(standardHoursPerDay * periodDays * 100) / 100;
 
         const allowancesTotal = Math.round(allowances.reduce((s, a) => {
             if (a.frequency === "Daily") return s + a.amount * effectiveDays;
@@ -148,7 +156,7 @@ export async function POST(req: Request) {
         let basicSalary = 0;
 
         if (salaryFreq === "Daily") {
-            // For Daily workers, 'basicSalary' represents their daily rate. 
+            // For Daily workers, 'basicSalary' represents their daily rate.
             // Paid for Present Days.
             basicSalary = Math.round(basicSalaryAmount * presentDaysCount);
         } else {
@@ -183,6 +191,8 @@ export async function POST(req: Request) {
                 grossPay,
                 netPay,
                 presentDays: presentDaysCount,
+                totalHoursWorked,
+                totalScheduledHours,
                 assemblyLines: {
                     create: assemblyLines.map(l => ({
                         date: l.day.date,
@@ -213,6 +223,8 @@ export async function POST(req: Request) {
                 grossPay,
                 netPay,
                 presentDays: presentDaysCount,
+                totalHoursWorked,
+                totalScheduledHours,
             }
         });
 

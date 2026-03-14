@@ -3,9 +3,10 @@ import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Play, Lock, X } from "lucide-react";
+import { Play, Lock, X, Trash2, AlertTriangle } from "lucide-react";
 import { formatCurrency } from "@/lib/utils";
 import Link from "next/link";
+import { useSession } from "next-auth/react";
 
 const schema = z.object({
     name: z.string().min(1, "Period name required"),
@@ -19,8 +20,14 @@ const labelCls = "text-xs text-gray-500 mb-1 block font-medium";
 
 export default function RunPayrollPage() {
 
+    const { data: session } = useSession();
+    const userRole = (session?.user as any)?.role ?? "";
+    const canDelete = userRole === "SuperAdmin" || userRole === "Admin";
+
     const [periods, setPeriods] = useState<any[]>([]);
-    const [workers, setWorkers] = useState<any[]>([]);
+    const [locations, setLocations] = useState<any[]>([]);
+    const [selectedLocationId, setSelectedLocationId] = useState<string>("");
+    const [missingProfiles, setMissingProfiles] = useState<number>(0);
     const [showForm, setShowForm] = useState(false);
     const [loading, setLoading] = useState(false);
     const [msg, setMsg] = useState<{ type: "success" | "error"; text: string } | null>(null);
@@ -30,18 +37,36 @@ export default function RunPayrollPage() {
 
 
     const load = async () => {
-        const [pRes, wRes] = await Promise.all([fetch("/api/payroll/periods"), fetch("/api/workers")]);
-        setPeriods(await pRes.json()); setWorkers(await wRes.json());
+        const [pRes, lRes, wRes, prRes] = await Promise.all([
+            fetch("/api/payroll/periods"),
+            fetch("/api/locations"),
+            fetch("/api/workers"),
+            fetch("/api/payroll/profiles"),
+        ]);
+        setPeriods(await pRes.json());
+        setLocations(await lRes.json());
+
+        const workersData = await wRes.json();
+        const profilesData = await prRes.json();
+        const activeWorkers = Array.isArray(workersData) ? workersData.filter((w: any) => w.status === "Active") : [];
+        const profiles = Array.isArray(profilesData) ? profilesData : [];
+        const missing = activeWorkers.filter((w: any) =>
+            !profiles.find((p: any) => p.workerId === w.id && p.basicSalary > 0)
+        ).length;
+        setMissingProfiles(missing);
     };
     useEffect(() => { load(); }, []);
 
     const onSubmit = async (data: RunFormData) => {
-
         setLoading(true); setMsg(null);
+        const body: any = { ...data };
+        if (selectedLocationId && canDelete) {
+            body.locationId = selectedLocationId;
+        }
         const res = await fetch("/api/payroll/periods", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(data),
+            body: JSON.stringify(body),
         });
         if (res.ok) {
             setMsg({ type: "success", text: "Payroll generated successfully! View in Payslips." });
@@ -59,6 +84,18 @@ export default function RunPayrollPage() {
         load();
     };
 
+    const deletePeriod = async (id: number, name: string) => {
+        if (!confirm(`Delete payroll period "${name}"? This cannot be undone.`)) return;
+        const res = await fetch(`/api/payroll/periods/${id}`, { method: "DELETE" });
+        if (res.ok) {
+            setMsg({ type: "success", text: `Period "${name}" deleted.` });
+            load();
+        } else {
+            const j = await res.json();
+            setMsg({ type: "error", text: j.error ?? "Delete failed." });
+        }
+    };
+
     return (
         <div>
             <div className="flex items-center justify-between mb-6">
@@ -71,6 +108,15 @@ export default function RunPayrollPage() {
                 </button>
             </div>
 
+            {missingProfiles > 0 && (
+                <div className="mb-4 p-3 bg-amber-50 border border-amber-200 rounded-lg text-sm text-amber-800 flex items-start gap-2">
+                    <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" />
+                    <span>
+                        <strong>{missingProfiles} active worker(s)</strong> have no basic salary configured — their payslips will show Rs. 0.{" "}
+                        <Link href="/dashboard/payroll/profiles" className="underline font-medium">Set up salary profiles →</Link>
+                    </span>
+                </div>
+            )}
 
             {msg && (
                 <div className={`px-4 py-3 rounded-lg mb-6 text-sm flex items-center justify-between font-medium ${msg.type === "success" ? "bg-emerald-50 border border-emerald-100 text-emerald-700" : "bg-red-50 border border-red-100 text-red-700"}`}>
@@ -103,9 +149,24 @@ export default function RunPayrollPage() {
                             <label className={labelCls}>Period End</label>
                             <input type="date" {...register("periodEnd")} className={inputCls} />
                         </div>
-                        <div className="flex items-end">
+                        {canDelete && (
+                            <div>
+                                <label className={labelCls}>Location</label>
+                                <select
+                                    value={selectedLocationId}
+                                    onChange={e => setSelectedLocationId(e.target.value)}
+                                    className={inputCls}
+                                >
+                                    <option value="">All Locations</option>
+                                    {locations.map((l: any) => (
+                                        <option key={l.id} value={l.id}>{l.name}</option>
+                                    ))}
+                                </select>
+                            </div>
+                        )}
+                        <div className={`flex items-end ${canDelete ? "md:col-span-3" : ""}`}>
                             <button type="submit" disabled={loading} className="w-full px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-sm font-bold disabled:opacity-60 transition-colors shadow-sm">
-                                {loading ? "Generating…" : "Generate for All Workers"}
+                                {loading ? "Generating…" : selectedLocationId ? "Generate for Selected Location" : "Generate for All Workers"}
                             </button>
                         </div>
                     </form>
@@ -140,6 +201,15 @@ export default function RunPayrollPage() {
                                     <Link href={`/dashboard/payroll/payslips?periodId=${p.id}`} className="px-3 py-1 bg-purple-600 hover:bg-purple-700 text-white rounded-lg text-xs font-medium transition-colors shadow-sm">View Payslips</Link>
                                     {p.status !== "Finalized" && (
                                         <button onClick={() => finalize(p.id)} className="px-3 py-1 bg-emerald-700 hover:bg-emerald-800 text-white rounded-lg text-xs font-medium transition-colors shadow-sm">Finalize</button>
+                                    )}
+                                    {canDelete && p.status !== "Finalized" && (
+                                        <button
+                                            onClick={() => deletePeriod(p.id, p.name)}
+                                            className="flex items-center gap-1 px-3 py-1 bg-red-600 hover:bg-red-700 text-white rounded-lg text-xs font-medium transition-colors shadow-sm"
+                                            title="Delete payroll period"
+                                        >
+                                            <Trash2 className="w-3 h-3" /> Delete
+                                        </button>
                                     )}
                                 </td>
                             </tr>

@@ -13,7 +13,7 @@ export async function GET(_: Request, { params }: { params: Promise<{ id: string
             records: {
                 where: { worker: ctx.getLocationFilter() },
                 include: {
-                    worker: true,
+                    worker: { include: { location: true } },
                     assemblyLines: true,
                     allowanceLines: true,
                     deductionLines: true,
@@ -45,7 +45,7 @@ export async function DELETE(_: Request, { params }: { params: Promise<{ id: str
     const { id } = await params;
     const ctx = await getSessionContext();
     if (!ctx) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    if (ctx.role !== "SuperAdmin") return NextResponse.json({ error: "Forbidden: SuperAdmin only" }, { status: 403 });
+    if (ctx.role !== "SuperAdmin" && ctx.role !== "Admin") return NextResponse.json({ error: "Forbidden: Admin or SuperAdmin only" }, { status: 403 });
 
     const period = await prisma.payrollPeriod.findUnique({ where: { id: Number(id) } });
     if (!period) return NextResponse.json({ error: "Not found" }, { status: 404 });

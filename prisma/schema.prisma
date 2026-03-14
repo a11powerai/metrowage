@@ -266,6 +266,8 @@ model PayrollRecord {
   grossPay            Int           @default(0)
   netPay              Int           @default(0)
   presentDays         Int           @default(0)
+  totalHoursWorked    Float         @default(0)
+  totalScheduledHours Float         @default(0)
   createdAt           DateTime      @default(now())
   period              PayrollPeriod @relation(fields: [periodId], references: [id], onDelete: Cascade)
   worker              Worker        @relation(fields: [workerId], references: [id])

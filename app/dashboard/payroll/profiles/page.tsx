@@ -143,11 +143,12 @@ export default function SalaryProfilesPage() {
                             <th className="text-right px-4 py-3 text-gray-500 font-medium text-xs uppercase tracking-wide">OT Rate/Hr</th>
                             <th className="text-left px-4 py-3 text-gray-500 font-medium text-xs uppercase tracking-wide">Duty Hours</th>
                             <th className="text-left px-4 py-3 text-gray-500 font-medium text-xs uppercase tracking-wide">Type</th>
+                            <th className="text-right px-4 py-3 text-gray-500 font-medium text-xs uppercase tracking-wide">Est. Monthly Pay</th>
                             <th className="text-right px-4 py-3 text-gray-500 font-medium text-xs uppercase tracking-wide">Actions</th>
                         </tr>
                     </thead>
                     <tbody>
-                        {profiles.length === 0 && <tr><td colSpan={6} className="text-center py-10 text-gray-400">No profiles set up yet.</td></tr>}
+                        {profiles.length === 0 && <tr><td colSpan={7} className="text-center py-10 text-gray-400">No profiles set up yet.</td></tr>}
                         {profiles.map((p: any) => (
                             <tr key={p.id} className="border-b border-gray-50 hover:bg-purple-25 transition-colors">
                                 <td className="px-4 py-3 font-medium text-gray-800">{p.worker?.name}</td>
@@ -160,6 +161,12 @@ export default function SalaryProfilesPage() {
                                 <td className="px-4 py-3 text-right text-blue-600">Rs. {p.overtimeRate}/hr</td>
                                 <td className="px-4 py-3 text-xs text-gray-600 font-mono">{p.dutyStart ?? "08:00"} → {p.dutyEnd ?? "17:00"}</td>
                                 <td className="px-4 py-3"><span className={`px-2 py-0.5 rounded-full text-xs font-medium ${TYPE_COLORS[p.workerType]}`}>{p.workerType}</span></td>
+                                <td className="px-4 py-3 text-right font-semibold text-gray-800">
+                                    Rs. {((p.salaryFrequency ?? "Monthly") === "Daily"
+                                        ? Math.round(p.basicSalary * 26)
+                                        : Math.round(p.basicSalary)
+                                    ).toLocaleString()}
+                                </td>
                                 <td className="px-4 py-3 text-right">
                                     <button onClick={() => startEdit(p)} className="p-1.5 hover:bg-purple-50 rounded-lg transition-colors"><Pencil className="w-3.5 h-3.5 text-gray-400" /></button>
                                 </td>
