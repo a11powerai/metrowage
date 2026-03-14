@@ -25,7 +25,6 @@ import {
     FileCheck,
     KeyRound,
     Cpu,
-    Play,
 } from "lucide-react";
 import { useState } from "react";
 
@@ -82,7 +81,7 @@ const navItems = [
             { label: "Allowances", href: "/dashboard/payroll/allowances", icon: Receipt },
             { label: "Deductions", href: "/dashboard/payroll/deductions", icon: Receipt },
             { label: "Commissions", href: "/dashboard/payroll/commissions", icon: TrendingUp },
-            { label: "Generate Payroll", href: "/dashboard/payroll/generator", icon: Play },
+            { label: "Run Payroll", href: "/dashboard/payroll/run", icon: Wallet },
             { label: "Payslips", href: "/dashboard/payroll/payslips", icon: FileText },
         ],
     },

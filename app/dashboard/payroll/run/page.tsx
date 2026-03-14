@@ -31,6 +31,7 @@ export default function RunPayrollPage() {
     const [workers, setWorkers] = useState<any[]>([]);
     const [factories, setFactories] = useState<any[]>([]);
     const [locations, setLocations] = useState<any[]>([]);
+    const [missingProfiles, setMissingProfiles] = useState<number>(0);
     const [showForm, setShowForm] = useState(false);
     const [loading, setLoading] = useState(false);
     const [msg, setMsg] = useState<{ type: "success" | "error"; text: string } | null>(null);
@@ -67,15 +68,23 @@ export default function RunPayrollPage() {
 
 
     const load = async () => {
-        const [pRes, wRes, lRes] = await Promise.all([
+        const [pRes, wRes, lRes, prRes] = await Promise.all([
             fetch("/api/payroll/periods"),
             fetch("/api/workers"),
-            fetch("/api/locations").catch(() => null)
+            fetch("/api/locations").catch(() => null),
+            fetch("/api/payroll/profiles"),
         ]);
         setPeriods(await pRes.json());
 
         const wData = await wRes.json();
         setWorkers(wData);
+
+        const profilesData = await prRes.json();
+        const activeWorkers = Array.isArray(wData) ? wData.filter((w: any) => w.status === "Active") : [];
+        const profiles = Array.isArray(profilesData) ? profilesData : [];
+        setMissingProfiles(activeWorkers.filter((w: any) =>
+            !profiles.find((p: any) => p.workerId === w.id && p.basicSalary > 0)
+        ).length);
 
         if (lRes && lRes.ok) {
             const locs = await lRes.json();
