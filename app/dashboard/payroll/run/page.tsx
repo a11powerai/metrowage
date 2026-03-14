@@ -11,6 +11,9 @@ const schema = z.object({
     name: z.string().min(1, "Period name required"),
     periodStart: z.string().min(1),
     periodEnd: z.string().min(1),
+    factoryId: z.string().optional(),
+    locationId: z.string().optional(),
+    workerIds: z.record(z.string(), z.boolean()).optional(),
 });
 type RunFormData = z.infer<typeof schema>;
 
@@ -21,27 +24,97 @@ export default function RunPayrollPage() {
 
     const [periods, setPeriods] = useState<any[]>([]);
     const [workers, setWorkers] = useState<any[]>([]);
+    const [factories, setFactories] = useState<any[]>([]);
+    const [locations, setLocations] = useState<any[]>([]);
     const [showForm, setShowForm] = useState(false);
     const [loading, setLoading] = useState(false);
     const [msg, setMsg] = useState<{ type: "success" | "error"; text: string } | null>(null);
     const today = new Date().toISOString().split("T")[0];
 
-    const { register, handleSubmit, reset, formState: { errors } } = useForm<RunFormData>({ resolver: zodResolver(schema) as any, defaultValues: { periodStart: today, periodEnd: today } });
+    const { register, handleSubmit, reset, watch, setValue, formState: { errors } } = useForm<RunFormData>({ 
+        resolver: zodResolver(schema) as any, 
+        defaultValues: { periodStart: today, periodEnd: today, factoryId: "", locationId: "", workerIds: {} } 
+    });
+
+    const watchFactoryId = watch("factoryId");
+    const watchLocationId = watch("locationId");
+    const watchWorkerIds = watch("workerIds") || {};
+
+    const filteredLocations = watchFactoryId ? locations.filter(l => l.factoryId?.toString() === watchFactoryId) : locations;
+    
+    // Filter workers based on selected factory and location
+    const filteredWorkers = workers.filter(w => {
+        if (watchFactoryId && w.location?.factoryId?.toString() !== watchFactoryId) return false;
+        if (watchLocationId && w.locationId?.toString() !== watchLocationId) return false;
+        return true;
+    });
+
+    const isAllSelected = filteredWorkers.length > 0 && filteredWorkers.every(w => watchWorkerIds[w.id]);
+
+    const toggleAll = () => {
+        const newVal = !isAllSelected;
+        const currentVals = { ...watchWorkerIds };
+        filteredWorkers.forEach(w => {
+            currentVals[w.id] = newVal;
+        });
+        setValue("workerIds", currentVals);
+    };
 
 
     const load = async () => {
-        const [pRes, wRes] = await Promise.all([fetch("/api/payroll/periods"), fetch("/api/workers")]);
-        setPeriods(await pRes.json()); setWorkers(await wRes.json());
+        const [pRes, wRes, lRes] = await Promise.all([
+            fetch("/api/payroll/periods"), 
+            fetch("/api/workers"),
+            fetch("/api/locations").catch(() => null)
+        ]);
+        setPeriods(await pRes.json()); 
+        
+        const wData = await wRes.json();
+        setWorkers(wData);
+        
+        if (lRes && lRes.ok) {
+            const locs = await lRes.json();
+            setLocations(locs);
+            // Extract unique factories
+            const facsMap = new Map();
+            locs.forEach((l: any) => {
+                if (l.factory) facsMap.set(l.factory.id, l.factory);
+            });
+            setFactories(Array.from(facsMap.values()));
+        } else {
+            // fallback: extract from workers
+            const locMap = new Map();
+            const facMap = new Map();
+            wData.forEach((w: any) => {
+                if (w.location) {
+                    locMap.set(w.location.id, w.location);
+                    if (w.location.factory) facMap.set(w.location.factory.id, w.location.factory);
+                }
+            });
+            setLocations(Array.from(locMap.values()));
+            setFactories(Array.from(facMap.values()));
+        }
     };
     useEffect(() => { load(); }, []);
 
     const onSubmit = async (data: RunFormData) => {
 
         setLoading(true); setMsg(null);
+        
+        // Extract dynamically selected workerIds
+        const selectedIds = Object.keys(data.workerIds || {})
+            .filter(id => data.workerIds?.[id])
+            .map(id => parseInt(id));
+
+        const payload = {
+            ...data,
+            workerIds: selectedIds.length > 0 ? selectedIds : undefined
+        };
+
         const res = await fetch("/api/payroll/periods", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(data),
+            body: JSON.stringify(payload),
         });
         if (res.ok) {
             setMsg({ type: "success", text: "Payroll generated successfully! View in Payslips." });
@@ -103,9 +176,45 @@ export default function RunPayrollPage() {
                             <label className={labelCls}>Period End</label>
                             <input type="date" {...register("periodEnd")} className={inputCls} />
                         </div>
-                        <div className="flex items-end">
-                            <button type="submit" disabled={loading} className="w-full px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-sm font-bold disabled:opacity-60 transition-colors shadow-sm">
-                                {loading ? "Generating…" : "Generate for All Workers"}
+                        <div className="md:col-span-3 grid grid-cols-1 md:grid-cols-2 gap-4 pt-4 border-t border-purple-50">
+                            <div>
+                                <label className={labelCls}>Filter by Factory</label>
+                                <select {...register("factoryId")} className={inputCls} onChange={(e) => {
+                                    setValue("factoryId", e.target.value);
+                                    setValue("locationId", ""); // Reset location when factory changes
+                                }}>
+                                    <option value="">All Factories</option>
+                                    {factories.map((f: any) => <option key={f.id} value={f.id}>{f.name}</option>)}
+                                </select>
+                            </div>
+                            <div>
+                                <label className={labelCls}>Filter by Location</label>
+                                <select {...register("locationId")} className={inputCls}>
+                                    <option value="">All Locations in {watchFactoryId ? "Factory" : "System"}</option>
+                                    {filteredLocations.map((l: any) => <option key={l.id} value={l.id}>{l.name}</option>)}
+                                </select>
+                            </div>
+                        </div>
+                        <div className="md:col-span-3 pt-2">
+                            <label className={labelCls}>Select Workers</label>
+                            <div className="border border-purple-100 rounded-lg max-h-48 overflow-y-auto bg-gray-50/50 p-2">
+                                <label className="flex items-center gap-2 p-2 hover:bg-white rounded cursor-pointer border-b border-gray-100 font-medium">
+                                    <input type="checkbox" checked={isAllSelected} onChange={toggleAll} className="w-4 h-4 text-purple-600 rounded" />
+                                    Select All Filtered Workers ({filteredWorkers.length})
+                                </label>
+                                {filteredWorkers.length === 0 && <div className="text-gray-400 p-2 text-sm text-center">No workers found.</div>}
+                                {filteredWorkers.map(w => (
+                                    <label key={w.id} className="flex items-center gap-2 p-2 hover:bg-white rounded cursor-pointer text-sm">
+                                        <input type="checkbox" {...register(`workerIds.${w.id}` as any)} className="w-4 h-4 text-purple-600 rounded" />
+                                        <span>{w.name} {w.location?.name ? <span className="text-gray-400 text-xs">— {w.location.name}</span> : ""}</span>
+                                    </label>
+                                ))}
+                            </div>
+                        </div>
+
+                        <div className="md:col-span-3 flex items-end justify-end mt-2">
+                            <button type="submit" disabled={loading} className="px-6 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-sm font-bold disabled:opacity-60 transition-colors shadow-sm">
+                                {loading ? "Generating…" : `Generate for Selected (${Object.values(watchWorkerIds).filter(Boolean).length || filteredWorkers.length}) Workers`}
                             </button>
                         </div>
                     </form>

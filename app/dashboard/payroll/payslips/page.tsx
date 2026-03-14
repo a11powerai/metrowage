@@ -29,6 +29,8 @@ interface PayrollRecord {
     allowanceLines: { id: number; name: string; amount: number }[];
     deductionLines: { id: number; type: string; description: string; amount: number }[];
     commissionLines: { id: number; series: string; amount: number }[];
+    workerFactory?: string;
+    workerLocation?: string;
 }
 
 function groupByDate(lines: AssemblyLine[]): Record<string, AssemblyLine[]> {
@@ -67,7 +69,13 @@ function PayslipsContent() {
         doc.setFontSize(16); doc.text("MetroWage — Payslip", 14, y); y += 10;
         doc.setFontSize(11);
         doc.text(`Worker: ${record.worker.name} | Period: ${period?.name}`, 14, y); y += 8;
+        doc.setFontSize(10);
+        doc.setTextColor(100);
+        if (record.workerFactory) {
+            doc.text(`Factory: ${record.workerFactory} | Location: ${record.workerLocation}`, 14, y); y += 8;
+        }
         doc.text(`Generated: ${new Date().toLocaleDateString()}`, 14, y); y += 12;
+        doc.setTextColor(0);
 
         doc.setFontSize(12); doc.text("EARNINGS", 14, y); y += 8;
         doc.setFontSize(9);
@@ -159,7 +167,10 @@ function PayslipsContent() {
                                 <div className="w-10 h-10 rounded-full bg-purple-100 border border-purple-200 flex items-center justify-center text-purple-700 text-sm font-bold shadow-sm">
                                     {record.worker.name[0]}
                                 </div>
-                                <div><div className="font-semibold text-gray-900">{record.worker.name}</div></div>
+                                <div>
+                                    <div className="font-semibold text-gray-900">{record.worker.name}</div>
+                                    <div className="text-[10px] text-gray-500">{record.workerFactory ? `${record.workerFactory} — ${record.workerLocation}` : ''}</div>
+                                </div>
                             </div>
                             <div className="flex items-center gap-4">
                                 <div className="text-right text-[10px] text-gray-400 uppercase tracking-wider font-semibold">Net Pay <div className="text-emerald-600 text-lg font-bold flex items-center gap-1">{formatCurrency(record.netPay)}</div></div>

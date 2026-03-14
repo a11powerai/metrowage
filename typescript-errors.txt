@@ -1,0 +1,3 @@
+app/api/ai/agent/route.ts(4,36): error TS2307: Cannot find module '@google/generative-ai' or its corresponding type declarations.
+components/ai/MetrowageAgent.tsx(6,23): error TS2307: Cannot find module 'sonner' or its corresponding type declarations.
+lib/gemini.ts(1,36): error TS2307: Cannot find module '@google/generative-ai' or its corresponding type declarations.

@@ -50,15 +50,25 @@ model RolePermission {
   @@unique([roleId, permissionId])
 }
 
-// ─── Locations ────────────────────────────────────────────────
+// ─── Factories & Locations ──────────────────────────────────────
+model Factory {
+  id          Int        @id @default(autoincrement())
+  name        String     @unique
+  address     String?
+  createdAt   DateTime   @default(now())
+  locations   Location[]
+}
+
 model Location {
   id           Int           @id @default(autoincrement())
+  factoryId    Int?
   name         String
   address      String
   lat          Float?
   lng          Float?
   radius       Float?        @default(200)  // metres
   createdAt    DateTime      @default(now())
+  factory      Factory?      @relation(fields: [factoryId], references: [id])
   workers      Worker[]
   users        User[]
   shiftConfigs ShiftConfig[]
@@ -194,6 +204,7 @@ model WorkerSalaryProfile {
   workerId        Int     @unique
   basicSalary     Float   @default(0)
   salaryFrequency String  @default("Monthly")  // Monthly | Daily
+  allowOvertime   Boolean @default(true)
   overtimeRate    Float   @default(0)   // per hour
   workerType      String  @default("Both")  // Salary | PieceRate | Both
   dutyStart       String  @default("08:00")  // HH:mm
