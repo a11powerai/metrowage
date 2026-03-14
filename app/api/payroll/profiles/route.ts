@@ -8,7 +8,7 @@ export async function GET() {
     if (!ctx) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
     const profiles = await prisma.workerSalaryProfile.findMany({
-        where: { worker: ctx.getLocationFilter() },
+        where: { worker: { ...ctx.getLocationFilter() } },
         include: { worker: true }
     });
     return NextResponse.json(profiles);
@@ -21,6 +21,7 @@ export async function POST(req: Request) {
         update: {
             basicSalary: body.basicSalary,
             salaryFrequency: body.salaryFrequency ?? "Monthly",
+            allowOvertime: body.allowOvertime ?? true,
             overtimeRate: body.overtimeRate,
             workerType: body.workerType,
             dutyStart: body.dutyStart ?? "08:00",
@@ -30,6 +31,7 @@ export async function POST(req: Request) {
             workerId: Number(body.workerId),
             basicSalary: body.basicSalary,
             salaryFrequency: body.salaryFrequency ?? "Monthly",
+            allowOvertime: body.allowOvertime ?? true,
             overtimeRate: body.overtimeRate,
             workerType: body.workerType,
             dutyStart: body.dutyStart ?? "08:00",

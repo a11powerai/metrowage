@@ -10,6 +10,7 @@ const schema = z.object({
     workerId: z.coerce.number().min(1, "Select worker"),
     basicSalary: z.coerce.number().min(0),
     salaryFrequency: z.enum(["Monthly", "Daily"]),
+    allowOvertime: z.boolean().default(true),
     overtimeRate: z.coerce.number().min(0),
     workerType: z.enum(["Salary", "PieceRate", "Both"]),
     dutyStart: z.string().default("08:00"),
@@ -51,6 +52,7 @@ export default function SalaryProfilesPage() {
         setValue("workerId", p.workerId);
         setValue("basicSalary", p.basicSalary);
         setValue("salaryFrequency", p.salaryFrequency ?? "Monthly");
+        setValue("allowOvertime", p.allowOvertime ?? true);
         setValue("overtimeRate", p.overtimeRate);
         setValue("workerType", p.workerType);
         setValue("dutyStart", p.dutyStart ?? "08:00");
@@ -108,6 +110,12 @@ export default function SalaryProfilesPage() {
                             <label className={labelCls}>OT Rate / Hour (Rs.)</label>
                             <input type="number" step="0.5" {...register("overtimeRate")} className={inputCls} />
                         </div>
+                        <div className="flex flex-col justify-center mt-2">
+                            <label className="flex items-center gap-2 text-sm font-medium text-gray-700 cursor-pointer">
+                                <input type="checkbox" {...register("allowOvertime")} className="w-4 h-4 text-purple-600 rounded border-gray-300 focus:ring-purple-500" />
+                                Allow Overtime Pay
+                            </label>
+                        </div>
                         <div>
                             <label className={labelCls}>Worker Type</label>
                             <select {...register("workerType")} className={inputCls}>
@@ -158,7 +166,9 @@ export default function SalaryProfilesPage() {
                                         {(p.salaryFrequency ?? "Monthly") === "Daily" ? "Per Day" : "Per Month"}
                                     </span>
                                 </td>
-                                <td className="px-4 py-3 text-right text-blue-600">Rs. {p.overtimeRate}/hr</td>
+                                <td className="px-4 py-3 text-right text-blue-600">
+                                    {p.allowOvertime ? `Rs. ${p.overtimeRate}/hr` : <span className="text-gray-400 text-xs">No OT</span>}
+                                </td>
                                 <td className="px-4 py-3 text-xs text-gray-600 font-mono">{p.dutyStart ?? "08:00"} → {p.dutyEnd ?? "17:00"}</td>
                                 <td className="px-4 py-3"><span className={`px-2 py-0.5 rounded-full text-xs font-medium ${TYPE_COLORS[p.workerType]}`}>{p.workerType}</span></td>
                                 <td className="px-4 py-3 text-right font-semibold text-gray-800">
