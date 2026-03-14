@@ -96,7 +96,7 @@ export async function POST(req: Request) {
         }
 
         const attendances = await prisma.attendance.findMany({
-            where: { workerId: worker.id, date: { gte: start, lte: end }, status: "Present" },
+            where: { workerId: worker.id, date: { gte: startOfDay(start), lte: endOfDay(end) }, status: "Present" },
         });
         const presentDaysCount = attendances.length;
         const effectiveDays = presentDaysCount > 0 ? presentDaysCount : periodDays;
