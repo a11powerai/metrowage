@@ -32,6 +32,8 @@ interface PayrollRecord {
     allowanceLines: { id: number; name: string; amount: number }[];
     deductionLines: { id: number; type: string; description: string; amount: number }[];
     commissionLines: { id: number; series: string; amount: number }[];
+    workerFactory?: string;
+    workerLocation?: string;
 }
 
 function groupByDate(lines: AssemblyLine[]): Record<string, AssemblyLine[]> {
@@ -77,8 +79,15 @@ function PayslipsContent() {
         doc.setFontSize(16); doc.text("MetroWage — Payslip", 14, y); y += 10;
         doc.setFontSize(11);
         doc.text(`Worker: ${record.worker.name} | Period: ${period?.name}`, 14, y); y += 8;
-        doc.text(`Location: ${record.worker.location?.name ?? "—"}`, 14, y); y += 8;
+        doc.setFontSize(10);
+        doc.setTextColor(100);
+        if (record.workerFactory) {
+            doc.text(`Factory: ${record.workerFactory} | Location: ${record.workerLocation}`, 14, y); y += 8;
+        } else if (record.worker.location) {
+            doc.text(`Location: ${record.worker.location.name}`, 14, y); y += 8;
+        }
         doc.text(`Generated: ${new Date().toLocaleDateString()}`, 14, y); y += 8;
+        doc.setTextColor(0);
 
         // Hours summary
         doc.setFontSize(10);
@@ -185,9 +194,9 @@ function PayslipsContent() {
                                 </div>
                                 <div>
                                     <div className="font-semibold text-gray-900">{record.worker.name}</div>
-                                    {record.worker.location && (
-                                        <div className="text-[10px] text-gray-400">{record.worker.location.name}</div>
-                                    )}
+                                    <div className="text-[10px] text-gray-500">
+                                        {record.workerFactory ? `${record.workerFactory} — ${record.workerLocation}` : record.worker.location?.name ?? ''}
+                                    </div>
                                     <div className="flex items-center gap-1 mt-0.5">
                                         <Clock className="w-3 h-3 text-blue-400" />
                                         <span className="text-[11px] text-blue-600 font-medium">{record.totalHoursWorked}h worked</span>

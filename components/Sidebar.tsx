@@ -97,6 +97,7 @@ const navItems = [
             { label: "Weekly", href: "/dashboard/reports/weekly", icon: BarChart3 },
             { label: "Monthly", href: "/dashboard/reports/monthly", icon: BarChart3 },
             { label: "Yearly", href: "/dashboard/reports/yearly", icon: TrendingUp },
+            { label: "Salary", href: "/dashboard/reports/salary", icon: Wallet },
         ],
     },
     {

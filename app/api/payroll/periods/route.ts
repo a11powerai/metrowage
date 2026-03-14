@@ -52,6 +52,13 @@ export async function POST(req: Request) {
     if (workerIds && Array.isArray(workerIds)) {
         workerFilter.id = { in: workerIds.map(Number) };
     }
+    // Also support factoryId and locationId explicitly if passed in body
+    if (body.factoryId) {
+        workerFilter.location = { factoryId: Number(body.factoryId) };
+    }
+    if (body.locationId) {
+        workerFilter.locationId = Number(body.locationId);
+    }
 
     const workers = await prisma.worker.findMany({
         where: workerFilter,
@@ -153,6 +160,7 @@ export async function POST(req: Request) {
 
         const basicSalaryAmount = profile?.basicSalary ?? 0;
         const salaryFreq = profile?.salaryFrequency ?? "Monthly";
+        const allowOvertime = profile?.allowOvertime ?? true;
         let basicSalary = 0;
 
         if (salaryFreq === "Daily") {
@@ -169,11 +177,40 @@ export async function POST(req: Request) {
         }
 
         const manualOt = body.overtimeHours?.[worker.id] ?? 0;
-        const overtimeHours = autoOtHoursSum + manualOt;
+        const overtimeHours = (allowOvertime ? autoOtHoursSum : 0) + manualOt;
         const overtimePay = Math.round((profile?.overtimeRate ?? 0) * overtimeHours);
 
+        // --- Leave Deductions (unpaid/unapproved leaves in period) ---
+        const leaves = await prisma.leave.findMany({
+            where: {
+                workerId: worker.id,
+                fromDate: { lte: end },
+                toDate: { gte: start },
+                OR: [
+                    { status: { not: "Approved" } },
+                    { leaveType: "Unpaid" }
+                ]
+            }
+        });
+        
+        let leaveDeductionAmount = 0;
+        if (leaves.length > 0) {
+            // Rough calculation: deduct daily rate for each unapproved/unpaid leave day
+            const dailyRate = salaryFreq === "Daily" ? basicSalaryAmount : (basicSalaryAmount / 26);
+            for (const leave of leaves) {
+                const leaveStart = leave.fromDate < start ? start : leave.fromDate;
+                const leaveEnd = leave.toDate > end ? end : leave.toDate;
+                const days = Math.round((leaveEnd.getTime() - leaveStart.getTime()) / 86400000) + 1;
+                leaveDeductionAmount += (days * dailyRate);
+            }
+        }
+        leaveDeductionAmount = Math.round(leaveDeductionAmount);
+
+        // Include leave deduction in deductionsTotal
+        const totalCalculatedDeductions = deductionsTotal + leaveDeductionAmount;
+
         const grossPay = basicSalary + overtimePay + allowancesTotal + commissionsTotal + assemblyEarnings;
-        const netPay = Math.max(0, grossPay - deductionsTotal);
+        const netPay = Math.max(0, grossPay - totalCalculatedDeductions);
 
         // Upsert payroll record
         await prisma.payrollRecord.upsert({
@@ -187,7 +224,7 @@ export async function POST(req: Request) {
                 allowancesTotal,
                 commissionsTotal,
                 assemblyEarnings,
-                deductionsTotal,
+                deductionsTotal: totalCalculatedDeductions,
                 grossPay,
                 netPay,
                 presentDays: presentDaysCount,
@@ -206,7 +243,10 @@ export async function POST(req: Request) {
                     create: allowances.map(a => ({ name: a.name, amount: Math.round(a.amount) })),
                 },
                 deductionLines: {
-                    create: deductions.map(d => ({ type: d.type, description: d.description, amount: Math.round(d.amount) })),
+                    create: [
+                        ...deductions.map(d => ({ type: d.type, description: d.description, amount: Math.round(d.amount) })),
+                        ...(leaveDeductionAmount > 0 ? [{ type: "Leave", description: "Unpaid/Unapproved Leaves", amount: leaveDeductionAmount }] : [])
+                    ],
                 },
                 commissionLines: {
                     create: commissions.map(c => ({ series: c.series, amount: Math.round(c.amount) })),
@@ -219,7 +259,7 @@ export async function POST(req: Request) {
                 allowancesTotal,
                 commissionsTotal,
                 assemblyEarnings,
-                deductionsTotal,
+                deductionsTotal: totalCalculatedDeductions,
                 grossPay,
                 netPay,
                 presentDays: presentDaysCount,

@@ -7,13 +7,19 @@ export async function GET(_: Request, { params }: { params: Promise<{ id: string
     const ctx = await getSessionContext();
     if (!ctx) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-    const period = await prisma.payrollPeriod.findUnique({
+    const period: any = await prisma.payrollPeriod.findUnique({
         where: { id: Number(id) },
         include: {
             records: {
-                where: { worker: ctx.getLocationFilter() },
+                where: { worker: { ...ctx.getLocationFilter() } },
                 include: {
-                    worker: { include: { location: true } },
+                    worker: {
+                        include: {
+                            location: {
+                                include: { factory: true }
+                            }
+                        }
+                    },
                     assemblyLines: true,
                     allowanceLines: true,
                     deductionLines: true,
@@ -22,6 +28,15 @@ export async function GET(_: Request, { params }: { params: Promise<{ id: string
             },
         },
     });
+
+    if (period && period.records) {
+        period.records = period.records.map((r: any) => ({
+            ...r,
+            workerFactory: r.worker?.location?.factory?.name,
+            workerLocation: r.worker?.location?.name
+        }));
+    }
+
     return NextResponse.json(period);
 }
 
@@ -59,7 +74,7 @@ export async function DELETE(_: Request, { params }: { params: Promise<{ id: str
     await prisma.payrollPeriod.delete({ where: { id: period.id } });
 
     await prisma.auditLog.create({
-        data: { periodId: null, userId: Number(ctx.id), action: "DELETE_PERIOD", detail: `Deleted payroll period: ${period.name}` },
+        data: { userId: Number(ctx.id), action: "DELETE_PERIOD", detail: `Deleted payroll period: ${period.name}` },
     });
 
     return NextResponse.json({ ok: true });
